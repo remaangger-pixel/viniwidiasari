@@ -1,0 +1,23 @@
+{
+  "name": "Designer Pro Dashboard",
+  "short_name": "DesignerPro",
+  "description": "Ultimate Dashboard for Designers",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0b0f1a",
+  "theme_color": "#2dd4bf",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
