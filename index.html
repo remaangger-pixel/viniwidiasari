@@ -385,9 +385,75 @@
 #full-project-list {
     transition: all 0.3s ease;
 }
+
+/* --- CSS SPLASH SCREEN --- */
+    #splash-screen {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background-color: #0b0f1a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        transition: opacity 0.8s ease-out, visibility 0.8s;
+    }
+
+    .splash-content {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .splash-logo {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 25px;
+        animation: smoothAppear 1.2s ease-out forwards;
+    }
+
+    .loader-bar {
+        width: 140px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress {
+        width: 0%;
+        height: 100%;
+        background: var(--accent);
+        animation: progressFill 2s ease-in-out forwards;
+    }
+
+    @keyframes smoothAppear {
+        0% { opacity: 0; transform: scale(0.85); filter: blur(8px); }
+        100% { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+
+    @keyframes progressFill {
+        0% { width: 0%; }
+        100% { width: 100%; }
+    }
+
+    .splash-fade-out {
+        opacity: 0;
+        visibility: hidden;
+    }
 </style>
 </head>
 <body>
+
+<div id="splash-screen">
+    <div class="splash-content">
+        <img src="icon-512.png" alt="AnviCreate Logo" class="splash-logo">
+        <div class="loader-bar">
+            <div class="progress"></div>
+        </div>
+    </div>
+</div>
 
 <div id="calOverlay" class="cal-overlay" onclick="toggleMiniCal()"></div>
 
@@ -1814,6 +1880,10 @@ function runReportAnalytics() {
 window.onload = async () => {
     console.log("🚀 Memulai aplikasi...");
 
+    // --- LOGIKA SPLASH SCREEN (MULAI) ---
+    const splash = document.getElementById('splash-screen');
+    // --- LOGIKA SPLASH SCREEN (SELESAI) ---
+
     // 1. Jalankan fungsi UI dasar (Data Lokal)
     if (typeof updateUI === 'function') updateUI();
     if (typeof initChart === 'function') initChart();
@@ -1850,7 +1920,25 @@ window.onload = async () => {
             if (typeof initChart === 'function') initChart();
             
             console.log("✅ Dashboard & Workflow Siap!");
+
+            // --- HILANGKAN SPLASH SCREEN SECARA HALUS ---
+            if (splash) {
+                splash.classList.add('splash-fade-out');
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                }, 800);
+            }
         }, 1000); 
+    } else {
+        // Jika tidak ada fetch data online, tetap hilangkan splash setelah 2 detik
+        setTimeout(() => {
+            if (splash) {
+                splash.classList.add('splash-fade-out');
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                }, 800);
+            }
+        }, 2000);
     }
 };
 
@@ -1866,3 +1954,4 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
