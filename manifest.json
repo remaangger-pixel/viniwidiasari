@@ -1,11 +1,11 @@
 {
-  "name": "Designer Pro Dashboard",
-  "short_name": "DesignerPro",
+  "name": "AnviCreate",
+  "short_name": "AnviCreate",
   "description": "Ultimate Dashboard for Designers",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0b0f1a",
-  "theme_color": "#2dd4bf",
+  "theme_color": "#0b0f1a",
   "icons": [
     {
       "src": "icon-512.png",
@@ -20,4 +20,5 @@
       "purpose": "maskable"
     }
   ]
+
 }
