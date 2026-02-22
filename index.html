@@ -1228,48 +1228,64 @@
 }
 
     function editProject(id) {
-    // Gunakan == agar aman meski id berupa string atau number
+    // 1. Cari data proyek (Gunakan == agar aman)
     const p = projects.find(proj => proj.id == id); 
     
     if(!p) {
-        console.error("❌ Data tidak ditemukan untuk ID:", id);
+        showToast("⚠️ Data tidak ditemukan!");
         return;
     }
 
-    // Navigasi ke form Add
+    // 2. Tutup detail (jika fungsi ada)
     if (typeof closeDetail === 'function') closeDetail(); 
-    navigate('Add');
 
-    // Beri jeda sedikit agar halaman 'Add' benar-benar terbuka di browser
+    // 3. PINDAH HALAMAN (Ganti navigate menjadi switchTab sesuai kodemu)
+    if (typeof switchTab === 'function') {
+        switchTab('add'); // Di file kamu, ID tab-nya adalah 'add' (huruf kecil)
+    }
+
+    // 4. Beri jeda sedikit agar form siap
     setTimeout(() => {
         try {
-            // Field dasar
-            if(document.getElementById('edit-id')) document.getElementById('edit-id').value = p.id;
-            if(document.getElementById('cName')) document.getElementById('cName').value = p.client || '';
+            // Isi ID tersembunyi
+            const editIdField = document.getElementById('edit-id');
+            if(editIdField) editIdField.value = p.id;
+
+            // Isi Nama Client
+            const nameField = document.getElementById('cName');
+            if(nameField) nameField.value = p.client || '';
+
+            // Isi Type & Software
             if(document.getElementById('cType')) document.getElementById('cType').value = p.type || 'Design';
             if(document.getElementById('cSoftware')) document.getElementById('cSoftware').value = p.software || '-';
-            
-            // Fee & DP (Konversi ke angka dulu agar tidak error toLocaleString)
-            if(document.getElementById('cFee')) document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
-            if(document.getElementById('cDP')) document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
-            
+
+            // Harga & DP (Format titik ribuan)
+            if(document.getElementById('cFee')) {
+                document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
+            }
+            if(document.getElementById('cDP')) {
+                document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
+            }
+
             // Deadline
-            if(document.getElementById('cDeadlineValue')) document.getElementById('cDeadlineValue').value = p.deadline || '';
+            if(document.getElementById('cDeadlineValue')) {
+                document.getElementById('cDeadlineValue').value = p.deadline || '';
+            }
             if(document.getElementById('cDeadlineDisplay')) {
+                // Pastikan fungsi formatDateIndo ada, jika tidak pakai nilai asli
                 document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
             }
 
-            // TANGGAL PROYEK MASUK (Sesuai HTML kamu: cStartDate)
-            // Kita ambil dari dateAdded yang ada di data
-            const valTglMasuk = p.dateAdded || p.startDate || '';
+            // TANGGAL MASUK (Sesuai ID di HTML kamu: cStartDate)
+            const tglMasuk = p.dateAdded || p.startDate || '';
             if(document.getElementById('cStartDate')) {
-                document.getElementById('cStartDate').value = valTglMasuk;
+                document.getElementById('cStartDate').value = tglMasuk;
             }
             if(document.getElementById('cStartDateDisplay')) {
-                document.getElementById('cStartDateDisplay').value = valTglMasuk;
+                document.getElementById('cStartDateDisplay').value = tglMasuk;
             }
 
-            // Priority, Note, Image
+            // Sisa field
             if(document.getElementById('cPriority')) document.getElementById('cPriority').value = p.priority || 'Normal';
             if(document.getElementById('cNote')) document.getElementById('cNote').value = p.note || '';
             if(document.getElementById('cImage')) document.getElementById('cImage').value = p.image || '';
@@ -1278,9 +1294,9 @@
             const btnSubmit = document.getElementById('btn-main-submit');
             if(btnSubmit) btnSubmit.innerText = "Simpan Perubahan";
 
-            console.log("✅ Berhasil memuat form edit kawan!");
-        } catch (e) {
-            console.error("❌ Ada error saat mengisi field:", e);
+            console.log("✅ Berhasil memuat data edit!");
+        } catch (err) {
+            console.error("❌ Error isi form:", err);
         }
     }, 150);
 }
@@ -1955,6 +1971,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
