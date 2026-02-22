@@ -862,31 +862,34 @@
         const onlineData = await response.json();
         
         if (onlineData && onlineData.length > 0) {
-            // 1. PROSES MEMBERSIHKAN DATA
+            // 1. PROSES MEMBERSIHKAN DATA (VERSI ANTI-MUNDUR)
             projects = onlineData.map(p => {
                 const toCleanStr = (val) => {
                     if (!val) return "";
                     let s = String(val);
+                    // Ambil hanya YYYY-MM-DD jika ada format jam T00:00
                     return s.includes('T') ? s.split('T')[0] : s;
                 };
 
-                const cleanDateAdded = toCleanStr(p.dateAdded);
                 const cleanDeadline = toCleanStr(p.deadline);
+                const cleanStartDate = toCleanStr(p.startDate);
+                const cleanDateAdded = toCleanStr(p.dateAdded);
 
-                // Normalisasi format "22 Feb" untuk Chart
-                let formattedDateAdded = cleanDateAdded;
-                if (cleanDateAdded.includes('-')) {
-                    const d = new Date(cleanDateAdded);
-                    if (!isNaN(d.getTime())) {
-                        formattedDateAdded = d.toLocaleDateString('id-ID', {day:'2-digit', month:'short'});
-                    }
-                }
+                // Fungsi lokal sederhana untuk ubah "2026-01-31" jadi "31 Jan" tanpa ribet zona waktu
+                const toShortMonth = (dateStr) => {
+                    if(!dateStr.includes('-')) return dateStr;
+                    const parts = dateStr.split('-');
+                    if(parts.length < 3) return dateStr;
+                    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+                    return `${parts[2]} ${months[parseInt(parts[1]) - 1]}`;
+                };
 
                 return {
                     ...p,
-                    deadline: cleanDeadline, // Tetap YYYY-MM-DD untuk logika Telat & Kalender
-                    startDate: toCleanStr(p.startDate),
-                    dateAdded: formattedDateAdded // "22 Feb" untuk Chart
+                    deadline: cleanDeadline, 
+                    startDate: cleanStartDate,
+                    // Gunakan fungsi potong string manual agar Chart aman
+                    dateAdded: toShortMonth(cleanDateAdded) 
                 };
             });
 
@@ -1968,6 +1971,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
