@@ -6,12 +6,16 @@
     <title>Designer Pro - Ultimate Dashboard</title>
 
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b0f1a">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0b0f1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
     :root {
         --bg-color: #0b0f1a;
@@ -63,8 +67,21 @@
     /* Penanda Klik (Active Filter) */
     .cal-date.active { background: var(--accent) !important; color: #0b0f1a !important; font-weight: 800; box-shadow: 0 4px 12px rgba(45, 212, 191, 0.3); }
     
-    /* Titik Deadline */
-    .cal-date.has-deadline::after { content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: var(--danger); border-radius: 50%; }
+    /* Kotak Task/Deadline (Menggantikan Titik) */
+    .cal-date.has-task {
+        border: 1.5px solid var(--danger) !important;
+        background: rgba(251, 113, 133, 0.15) !important;
+        color: var(--danger) !important;
+        font-weight: 700;
+        border-radius: 10px;
+    }
+
+    /* Spesial: Jika hari ini ada deadline */
+    .cal-date.is-today.has-task {
+        background: linear-gradient(135deg, var(--accent-soft) 50%, rgba(251, 113, 133, 0.2) 50%) !important;
+        border: 1.5px solid var(--danger) !important;
+        color: var(--accent) !important;
+    }
 
     /* SEARCH BOX */
     .search-box { position: relative; margin-bottom: 20px; display: flex; align-items: center; }
@@ -464,6 +481,9 @@
             <i class="fa-solid fa-circle-xmark" style="font-size: 22px; color: var(--text-dim); cursor: pointer;" onclick="closeDetail()"></i>
         </div>
         
+        <img id="det-image-preview" src="" alt="Portfolio Preview" 
+             style="width: 100%; border-radius: 18px; margin-bottom: 20px; display: none; object-fit: cover; max-height: 200px; border: 1px solid var(--glass);">
+
         <div class="detail-row">
             <span class="detail-label">Pekerjaan</span>
             <span id="det-type" class="detail-val">-</span>
@@ -497,17 +517,18 @@
         <span class="detail-label">Brief Singkat:</span>
         <div id="det-note" class="brief-box">Belum ada catatan.</div>
         
-        <button id="btn-edit-proj" class="btn-edit-detail">
-            <i class="fa-solid fa-pen-to-square"></i> Edit Proyek
-        </button>
-        
-        <button id="btn-delete-proj" class="btn-delete">
-            <i class="fa-solid fa-trash-can"></i> Hapus Proyek
-        </button>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px;">
+            <button id="btn-edit-proj" class="btn-edit-detail" style="margin:0">
+                <i class="fa-solid fa-pen-to-square"></i> Edit
+            </button>
+            <button id="btn-delete-proj" class="btn-delete" style="margin:0">
+                <i class="fa-solid fa-trash-can"></i> Hapus
+            </button>
+        </div>
 
-        <button onclick="copyProyekInvoice()" class="btn-submit" style="grid-column: span 2; background: var(--warning); color: #0b0f1a; margin-top: 10px;">
-    <i class="fa-solid fa-file-invoice-dollar"></i> Salin Tagihan ke WA
-</button>
+        <button onclick="copyProyekInvoice()" class="btn-submit" style="width: 100%; background: var(--warning); color: #0b0f1a; margin-top: 10px;">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Salin Tagihan ke WA
+        </button>
     </div>
 </div>
 
@@ -688,8 +709,34 @@
         <textarea id="cNote" placeholder="Catatan tambahan..." style="height: 80px;"></textarea>
 
         <div class="form-group">
-    <label class="form-label">Link Gambar Portofolio</label>
-    <input type="text" id="cImage" placeholder="Tempel URL gambar (Pinterest/Imgur)">
+    <label class="form-label">Foto Portofolio & Layout</label>
+    <div style="position: relative; display: flex; flex-direction: column; gap: 10px; background: var(--card-bg); padding: 15px; border-radius: 20px; border: 1px solid var(--glass);">
+        
+        <input type="file" id="cImageFile" accept="image/*" style="display: none;" onchange="handleFileSelect(this)">
+        
+        <div onclick="document.getElementById('cImageFile').click()" 
+             style="background: var(--bg-color); border: 2px dashed var(--glass); padding: 20px; border-radius: 15px; text-align: center; cursor: pointer; transition: 0.3s;"
+             onmouseover="this.style.borderColor='var(--accent)'" 
+             onmouseout="this.style.borderColor='var(--glass)'">
+            <i class="fa-solid fa-camera-retro" style="color: var(--accent); font-size: 24px; margin-bottom: 8px;"></i>
+            <p id="file-label" style="margin: 0; font-size: 11px; color: var(--text-dim); font-weight: 600;">Pilih Foto atau Ambil Gambar</p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; padding: 5px;">
+            <span style="font-size: 10px; color: var(--text-dim); white-space: nowrap;">Fokus Thumbnail:</span>
+            <select id="cImagePos" style="flex: 1; background: var(--bg-color); color: white; border: 1px solid var(--glass); border-radius: 8px; font-size: 10px; padding: 5px; cursor: pointer;">
+                <option value="center">Tengah (Default)</option>
+                <option value="top">Atas (Header)</option>
+                <option value="bottom">Bawah (Footer)</option>
+            </select>
+        </div>
+
+        <small id="upload-status" style="display: none; color: var(--accent); font-size: 10px; font-weight: 700; text-align: center;">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Memproses Gambar...
+        </small>
+        
+        <input type="hidden" id="cImage">
+    </div>
 </div>
         
         <button id="btn-main-submit" class="btn-submit" onclick="saveNewProject()">Simpan Proyek</button>
@@ -837,8 +884,12 @@
 </nav>
 
 <script>
-    // 1. URL GUDANG DATA ONLINE (GOOGLE SHEETS)
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwB_ZOSUXxnuUmPKuKPC7lA6Ba2DtehHGmqpCC0kIcCSb9xv3GxUA2N7t7f0g7TpQ0-Ew/exec";
+    // 1. KONEKSI GUDANG DATA ONLINE (SUPABASE)
+    const SUPABASE_URL = 'https://xaeewbfpnugmurddoszl.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhZWV3YmZwbnVnbXVyZGRvc3psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NDg3NjYsImV4cCI6MjA4NzMyNDc2Nn0.xe7I9Otpd4gwqpJRF-dcrsH06bSny8Unw0GW4RU21_A';
+    
+    // Inisialisasi Client Supabase
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     
     // 2. VARIABEL DATABASE LOKAL
     const DB_KEY = 'designer_full_db';
@@ -860,11 +911,16 @@
     // --- FUNGSI BARU: AMBIL DATA DARI GOOGLE SHEETS SAAT START ---
     async function fetchOnlineData() {
     try {
-        const response = await fetch(SCRIPT_URL);
-        const onlineData = await response.json();
-        
+        // 1. AMBIL DATA DARI SUPABASE
+        const { data: onlineData, error } = await _supabase
+            .from('projects')
+            .select('*')
+            .order('id', { ascending: false });
+
+        if (error) throw error;
+
         if (onlineData && onlineData.length > 0) {
-            // 1. PROSES MEMBERSIHKAN DATA (VERSI ANTI-MUNDUR)
+            // 2. PROSES MEMBERSIHKAN DATA (VERSI ANTI-MUNDUR)
             projects = onlineData.map(p => {
                 const toCleanStr = (val) => {
                     if (!val) return "";
@@ -877,9 +933,9 @@
                 const cleanStartDate = toCleanStr(p.startDate);
                 const cleanDateAdded = toCleanStr(p.dateAdded);
 
-                // Fungsi lokal sederhana untuk ubah "2026-01-31" jadi "31 Jan" tanpa ribet zona waktu
+                // Fungsi lokal sederhana untuk ubah "2026-01-31" jadi "31 Jan"
                 const toShortMonth = (dateStr) => {
-                    if(!dateStr.includes('-')) return dateStr;
+                    if(!dateStr || !dateStr.includes('-')) return dateStr;
                     const parts = dateStr.split('-');
                     if(parts.length < 3) return dateStr;
                     const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
@@ -890,82 +946,88 @@
                     ...p,
                     deadline: cleanDeadline, 
                     startDate: cleanStartDate,
-                    // Gunakan fungsi potong string manual agar Chart aman
+                    // Format untuk label Chart
                     dateAdded: toShortMonth(cleanDateAdded) 
                 };
             });
 
-            // 2. SIMPAN KE LOCAL STORAGE
+            // 3. SIMPAN KE LOCAL STORAGE
             localStorage.setItem(DB_KEY, JSON.stringify(projects));
             
-            // 3. REFRESH SEMUA KOMPONEN (URUTAN PENTING!)
-            
-            // Update Angka Report & Statistik
+            // 4. REFRESH SEMUA KOMPONEN
             if (typeof updateUI === 'function') updateUI();
-            
-            // Render Daftar Proyek
             if (typeof renderPortfolio === 'function') renderPortfolio();
-            
-            // Hitung Ulang Deadline & Status Telat
             if (typeof filterWorklog === 'function') filterWorklog();
-            
-            // Gambar Ulang Kalender
             if (typeof renderCalendar === 'function') renderCalendar();
             if (typeof renderMiniCalendar === 'function') renderMiniCalendar();
             
-            // Gambar Ulang Chart (Beri jeda agar animasi muncul & data siap)
             if (typeof initChart === 'function') {
                 setTimeout(() => {
                     initChart();
-                    console.log("📈 Chart & Report updated from Cloud");
+                    console.log("📈 Chart & Report updated from Supabase");
                 }, 500);
             }
 
-            console.log("✅ Data berhasil sinkron dari Cloud!");
+            console.log("✅ Data berhasil sinkron dari Supabase!");
         }
     } catch (err) {
-        console.error("⚠️ Gagal sinkron:", err);
-        console.log("Menggunakan data lokal.");
+        console.error("⚠️ Gagal sinkron Supabase:", err);
+        // Fallback: Gunakan data lokal jika internet mati
+        const local = localStorage.getItem(DB_KEY);
+        if(local) {
+            projects = JSON.parse(local);
+            updateUI();
+        }
     }
 }
     
     // VARIABEL BARU UNTUK TRACKING TARGET KALENDER
     let activeCalendarTarget = 'deadline'; 
 
-    function updateUI() {
-    // 1. SINKRONISASI DATA
-    projects = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+    async function updateUI() {
+    // 1. SINKRONISASI DATA (Prioritas Lokal untuk Kecepatan)
+    const localData = localStorage.getItem(DB_KEY);
+    projects = localData ? JSON.parse(localData) : [];
 
     // 2. UPDATE PROFILE & BANK
     const profCount = document.getElementById('prof-completed-count');
     if(profCount) {
-        profCount.innerText = projects.filter(p => p.process === 'Selesai').length;
+        profCount.innerText = projects.filter(p => (p.process || "").toLowerCase() === 'selesai').length;
     }
-    if(typeof loadPaymentInfo === 'function') loadPaymentInfo();
+    
+    // Tampilkan data bank dari LocalStorage dulu agar instan
+    const savedBank = JSON.parse(localStorage.getItem('designer_bank_info'));
+    if(savedBank && typeof displayBankData === 'function') {
+        displayBankData(savedBank);
+    }
 
     // 3. SORTIR DATA
     const sorted = [...projects].sort((a, b) => {
-        if (a.process === 'Selesai' && b.process !== 'Selesai') return 1;
-        if (a.process !== 'Selesai' && b.process === 'Selesai') return -1;
-        if (a.deadline && b.deadline && a.process !== 'Selesai') {
+        const procA = (a.process || "").toLowerCase();
+        const procB = (b.process || "").toLowerCase();
+        if (procA === 'selesai' && procB !== 'selesai') return 1;
+        if (procA !== 'selesai' && procB === 'selesai') return -1;
+        
+        if (a.deadline && b.deadline && procA !== 'selesai') {
             return new Date(a.deadline) - new Date(b.deadline);
         }
         return b.id - a.id;
     });
 
-    // 4. KALKULASI REVENUE (DASHBOARD HOME)
-    // Gunakan Number() untuk mencegah hasil NaN jika data dari Cloud berupa string
-    const lunas = projects.reduce((a, b) => a + (b.status === 'Paid' ? (Number(b.fee) || 0) : (Number(b.dp) || 0)), 0);
+    // 4. KALKULASI REVENUE
+    const lunas = projects.reduce((a, b) => {
+        const status = (b.status || "").toLowerCase();
+        const fee = Number(b.fee) || 0;
+        const dp = Number(b.dp) || 0;
+        return a + (status === 'paid' ? fee : dp);
+    }, 0);
+    
     const estimasi = projects.reduce((a, b) => a + (Number(b.fee) || 0), 0);
     const piutang = estimasi - lunas;
     
-    const revEl = document.getElementById('total-revenue');
-    const pendEl = document.getElementById('total-pending');
-    const estEl = document.getElementById('est-total');
-    
-    if(revEl) revEl.innerText = "Rp " + lunas.toLocaleString('id-ID');
-    if(pendEl) pendEl.innerText = "Rp " + piutang.toLocaleString('id-ID');
-    if(estEl) estEl.innerText = "Rp " + estimasi.toLocaleString('id-ID');
+    if(document.getElementById('total-revenue')) document.getElementById('total-revenue').innerText = "Rp " + lunas.toLocaleString('id-ID');
+    if(document.getElementById('total-pending')) document.getElementById('total-pending').innerText = "Rp " + piutang.toLocaleString('id-ID');
+    if(document.getElementById('est-total')) document.getElementById('est-total').innerText = "Rp " + estimasi.toLocaleString('id-ID');
     
     const prog = document.getElementById('progress-bar');
     if(prog) prog.style.width = (estimasi > 0 ? (lunas / estimasi) * 100 : 0) + "%";
@@ -973,15 +1035,11 @@
     // 5. DISPLAY HOME (Recent Projects)
     const recentEl = document.getElementById('recent-projects');
     if(recentEl) {
-        let displayHome = sorted;
-        if(typeof currentFilter !== 'undefined' && currentFilter !== 'Semua') {
-            displayHome = sorted.filter(p => p.status === currentFilter);
-        }
-        recentEl.innerHTML = displayHome.slice(0, 10).map(p => createCard(p)).join('') || 
+        recentEl.innerHTML = sorted.slice(0, 10).map(p => createCard(p)).join('') || 
         '<p style="text-align:center;color:var(--text-dim);font-size:12px;padding:20px;">Belum ada proyek.</p>';
     }
 
-    // 6. DISPLAY WORKLOG (Daftar Lengkap & Filter)
+    // 6. DISPLAY WORKLOG
     const worklogList = document.getElementById('full-project-list');
     if(worklogList) {
         const searchInput = document.getElementById('worklogSearch');
@@ -1002,13 +1060,13 @@
         if(typeof currentStatusFilter !== 'undefined' && currentStatusFilter !== 'Semua') {
             displayWorklog = displayWorklog.filter(p => {
                 const filterAktif = currentStatusFilter.toLowerCase();
+                const pProcess = (p.process || "").toLowerCase();
+                const pStatus = (p.status || "").toLowerCase();
+
                 if (filterAktif === 'belum bayar' || filterAktif === 'unpaid') {
-                    const payValue = (p.payment || "").toLowerCase();
-                    const statValue = (p.status || "").toLowerCase();
-                    return payValue === 'unpaid' || payValue === 'belum bayar' || 
-                           statValue === 'unpaid' || statValue === 'belum bayar';
+                    return pStatus === 'unpaid' || pStatus === 'belum bayar';
                 } else {
-                    return (p.process || "").toLowerCase() === filterAktif;
+                    return pProcess === filterAktif;
                 }
             });
         }
@@ -1022,27 +1080,31 @@
                 </div>`;
         }
 
-        if(displayWorklog.length === 0) {
-            htmlContent += `<p style="text-align:center;color:var(--text-dim);font-size:12px;padding:50px; opacity:0.6;">Proyek tidak ditemukan.</p>`;
-        } else {
-            htmlContent += displayWorklog.map(p => createCard(p)).join('');
-        }
-        worklogList.innerHTML = htmlContent;
+        worklogList.innerHTML = htmlContent + (displayWorklog.map(p => createCard(p)).join('') || 
+        '<p style="text-align:center;color:var(--text-dim);font-size:12px;padding:50px; opacity:0.6;">Proyek tidak ditemukan.</p>');
     }
 
-    // 7. JALANKAN FUNGSI PENDUKUNG & ANALYTICS
+    // 7. JALANKAN FUNGSI PENDUKUNG
     if(typeof renderCalendar === 'function') renderCalendar(); 
-    if(typeof initChart === 'function') initChart();
     if(typeof updateGreeting === 'function') updateGreeting();
     if(typeof renderPortfolio === 'function') renderPortfolio();
     
-    // PAKSA ANALYTICS JALAN (Agar report tidak kosong saat menu dibuka)
-    if(typeof runReportAnalytics === 'function') {
-        setTimeout(() => {
-            runReportAnalytics();
-            console.log("📊 Report analytics synced.");
-        }, 300);
-    }
+    // Chart dan Report dijalankan sedikit telat agar UI tidak lag
+    setTimeout(() => {
+        if(typeof initChart === 'function') initChart();
+        if(typeof runReportAnalytics === 'function') runReportAnalytics();
+    }, 150);
+}
+
+// Tambahkan fungsi pembantu ini agar updateUI tidak memicu fetch Supabase terus menerus
+function displayBankData(d) {
+    const bankInput = document.getElementById('my-bank-name');
+    const accInput = document.getElementById('my-bank-acc');
+    const displayNorek = document.getElementById('display-norek'); // Jika ada teks di profil
+
+    if (bankInput) bankInput.value = d.bank || d.bank_name || '';
+    if (accInput) accInput.value = d.acc || d.account_number || '';
+    if (displayNorek) displayNorek.innerText = `${d.bank || d.bank_name} - ${d.acc || d.account_number}`;
 }
 
     function initDonutChart(catData) {
@@ -1115,7 +1177,7 @@
 
     // --- FUNGSI PROYEK (CREATE CARD, DLL) ---
     function createCard(p) {
-    // 1. Logika Penentuan Status
+    // 1. Logika Penentuan Status & Warna
     const statusText = p.status === 'Paid' ? 'Paid' : (p.dp > 0 ? 'DP' : 'Unpaid');
     const prioColor = p.priority === 'high' ? '#fb7185' : p.priority === 'medium' ? '#f59e0b' : '#3498db';
     let deadlineTag = ''; 
@@ -1132,7 +1194,6 @@
         } else if (diffDays > 0 && diffDays <= 2) { 
             deadlineTag = `<span class="deadline-tag tag-warning">${diffDays} Hari Lagi</span>`; 
         } else if (diffDays > 2) { 
-            // Tambahkan style inline agar label tetap konsisten
             deadlineTag = `<span class="deadline-tag tag-safe" style="white-space: nowrap; flex-shrink: 0;">Safe Zone</span>`; 
         } else if (diffDays < 0) { 
             deadlineTag = `<span class="deadline-tag tag-danger">TELAT</span>`; 
@@ -1140,11 +1201,24 @@
         }
     }
 
+    // 2. Logika Thumbnail (Hanya muncul jika ada p.image)
+    let thumbnailHtml = '';
+    if (p.image) {
+        thumbnailHtml = `
+        <div style="width: 100%; height: 100px; border-radius: 12px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--glass);">
+            <img src="${p.image}" 
+                 style="width: 100%; height: 100%; object-fit: cover; object-position: ${p.imagePos || 'center'};" 
+                 alt="Preview">
+        </div>`;
+    }
+
     return `
     <div class="project-card ${urgencyClass}" onclick="openDetail(${p.id})">
         <div class="priority-line" style="background: ${prioColor}"></div>
-        <div style="display:flex; justify-content:space-between; align-items: flex-start; gap: 10px;">
-            <div style="flex:1; min-width: 0;"> <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px; flex-wrap: wrap;">
+        
+        ${thumbnailHtml} <div style="display:flex; justify-content:space-between; align-items: flex-start; gap: 10px;">
+            <div style="flex:1; min-width: 0;"> 
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px; flex-wrap: wrap;">
                     <h4 style="margin:0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
                         ${p.client}
                     </h4>
@@ -1154,9 +1228,9 @@
                     ${p.type} • <span class="deadline">${p.deadline || '-'}</span>
                 </div>
             </div>
-            <div class="project-price" style="font-weight: 800; font-size: 16px; color: var(--accent); white-space: nowrap;">
-    Rp ${Number(p.fee).toLocaleString('id-ID')}
-</div>
+            <div class="project-price" style="font-weight: 800; font-size: 15px; color: var(--accent); white-space: nowrap;">
+                Rp ${Number(p.fee).toLocaleString('id-ID')}
+            </div>
         </div>
         <div class="status-group" style="margin-top: 12px; display: flex; gap: 8px;">
             <span class="badge badge-payment ${statusText.toLowerCase()} clickable" 
@@ -1172,9 +1246,11 @@
 }
 
     function openDetail(id) {
+    // 1. Cari data proyek berdasarkan ID
     const p = projects.find(proj => proj.id === id); 
     if(!p) return;
 
+    // 2. Isi data teks dasar
     document.getElementById('det-client').innerText = p.client;
     document.getElementById('det-type').innerText = p.type;
     document.getElementById('det-software').innerText = p.software || '-';
@@ -1182,50 +1258,82 @@
     document.getElementById('det-deadline').innerText = p.deadline || 'Tidak ada';
     document.getElementById('det-fee').innerText = "Rp " + p.fee.toLocaleString('id-ID');
     
-    // PERBAIKAN LOGIKA SISA TAGIHAN:
-    // Jika status sudah Paid, maka sisa = 0. Jika belum, baru dikurangi DP.
+    // 3. Logika Sisa Tagihan
     const sisaTagihan = p.status === 'Paid' ? 0 : (p.fee - (p.dp || 0));
-    document.getElementById('det-sisa').innerText = "Rp " + sisaTagihan.toLocaleString('id-ID');
-    
-    // Warna teks sisa tagihan (Merah kalau masih ada hutang, Hijau/Dim kalau lunas)
-    document.getElementById('det-sisa').style.color = sisaTagihan > 0 ? "var(--warning)" : "var(--accent)";
+    const sisaEl = document.getElementById('det-sisa');
+    if (sisaEl) {
+        sisaEl.innerText = "Rp " + sisaTagihan.toLocaleString('id-ID');
+        sisaEl.style.color = sisaTagihan > 0 ? "var(--warning)" : "var(--accent)";
+    }
 
+    // 4. Catatan (Note)
     document.getElementById('det-note').innerText = p.note || "Tidak ada catatan.";
+
+    // 5. Tampilkan Foto Portofolio (Dengan Posisi yang Sesuai)
+    const imgDisplay = document.getElementById('det-image-preview');
+    if (imgDisplay) {
+        if (p.image) {
+            imgDisplay.src = p.image;
+            // Menerapkan posisi yang disimpan (top, center, atau bottom)
+            imgDisplay.style.objectPosition = p.imagePos || 'center';
+            imgDisplay.style.display = 'block';
+        } else {
+            imgDisplay.style.display = 'none';
+        }
+    }
     
-    // Pastikan fungsi deleteProject dan editProject sudah ada di kode kamu
-    document.getElementById('btn-delete-proj').onclick = () => deleteProject(p.id);
-    document.getElementById('btn-edit-proj').onclick = () => editProject(p.id);
+    // 6. Pasang fungsi klik untuk tombol Delete & Edit
+    const btnDelete = document.getElementById('btn-delete-proj');
+    const btnEdit = document.getElementById('btn-edit-proj');
     
-    document.getElementById('detailModal').style.display = 'flex';
+    if (btnDelete) btnDelete.onclick = () => deleteProject(p.id);
+    if (btnEdit) btnEdit.onclick = () => editProject(p.id);
+    
+    // 7. Munculkan Modal
+    const modal = document.getElementById('detailModal');
+    if (modal) modal.style.display = 'flex';
 }
 
     function closeDetail(e) { if(!e || e.target.id === 'detailModal' || e.target.classList.contains('fa-circle-xmark')) document.getElementById('detailModal').style.display = 'none'; }
     async function deleteProject(id) { 
-    if(confirm("Hapus proyek ini secara permanen?")) { 
-        // 1. Hapus dari daftar lokal
+    if(confirm("Hapus proyek ini secara permanen dari Cloud?")) { 
+        // 1. Cari data proyek untuk cek apakah ada fotonya
+        const projectToDelete = projects.find(p => p.id === id);
+        
+        // 2. Hapus dari daftar lokal (UI langsung update biar cepet)
         projects = projects.filter(p => p.id !== id); 
         localStorage.setItem(DB_KEY, JSON.stringify(projects)); 
+        closeDetail(); 
+        updateUI(); 
         
-        // 2. Tampilkan notifikasi proses
         showToast("⏳ Menghapus di Cloud...");
 
         try {
-            // 3. Kirim perubahan ke Google Sheets
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({ action: 'save', projects: projects })
-            });
-            
-            showToast("🗑️ Proyek berhasil dihapus!");
-        } catch (err) {
-            console.error(err);
-            showToast("⚠️ Terhapus di perangkat ini, Cloud gagal sinkron.");
-        }
+            // 3. HAPUS DATA DI TABEL SUPABASE
+            const { error: tableError } = await _supabase
+                .from('projects')
+                .delete()
+                .eq('id', id);
 
-        // 4. Tutup detail dan perbarui tampilan
-        closeDetail(); 
-        updateUI(); 
+            if (tableError) throw tableError;
+
+            // 4. HAPUS FOTO DI STORAGE (Jika ada link image Supabase)
+            if (projectToDelete && projectToDelete.image && projectToDelete.image.includes('portfolios')) {
+                // Ambil nama file dari URL (bagian terakhir setelah slash)
+                const fileName = projectToDelete.image.split('/').pop();
+                
+                const { error: storageError } = await _supabase.storage
+                    .from('portfolios')
+                    .remove([fileName]);
+                
+                if (storageError) console.warn("Foto gagal dihapus dari storage, tapi data tabel sudah bersih.");
+            }
+            
+            showToast("🗑️ Proyek & Foto berhasil dihapus!");
+        } catch (err) {
+            console.error("Gagal hapus cloud:", err);
+            showToast("⚠️ Terhapus lokal, Cloud gagal sinkron.");
+        }
     } 
 }
 
@@ -1235,7 +1343,24 @@
     // 1. Simpan posisi ke variabel global
     currentView = viewId;
 
-    // 2. Daftar semua ID halaman asli di HTML kamu (Pakai awalan 'view-')
+    // --- PERBAIKAN JUDUL HEADER ---
+    const titleEl = document.getElementById('page-title');
+    if (titleEl) {
+        // Ambil nama bersih (tanpa 'view-')
+        const cleanName = viewId.replace('view-', '');
+        
+        // Logika penamaan judul agar lebih rapi
+        if (cleanName === 'History') {
+            titleEl.innerText = 'Worklog';
+        } else if (cleanName === 'Add') {
+            titleEl.innerText = 'Tambah Proyek';
+        } else {
+            titleEl.innerText = cleanName;
+        }
+    }
+    // ------------------------------
+
+    // 2. Daftar semua ID halaman asli di HTML kamu
     const pages = ['view-Home', 'view-History', 'view-Add', 'view-Report', 'view-Profile'];
 
     // 3. Sembunyikan SEMUA halaman
@@ -1244,11 +1369,11 @@
         if (page) {
             page.style.display = 'none';
             page.classList.remove('active');
-            page.classList.add('hidden'); // Menambah class hidden agar aman
+            page.classList.add('hidden');
         }
     });
 
-    // 4. Cari target (Cek apakah pakai 'view-' atau tidak)
+    // 4. Cari target
     let finalTargetId = viewId.startsWith('view-') ? viewId : 'view-' + viewId;
     const target = document.getElementById(finalTargetId);
 
@@ -1268,15 +1393,14 @@
     if (el) {
         el.classList.add('active');
     } else {
-        // Jika dipanggil dari tombol Edit, cari ikon yang pas
-        const iconMap = { 'Home': '.fa-home', 'Add': '.fa-plus', 'History': '.fa-clock', 'Profile': '.fa-user', 'Report': '.fa-chart-pie' };
+        const iconMap = { 'Home': '.fa-house', 'Add': '.fa-plus', 'History': '.fa-calendar-days', 'Profile': '.fa-user', 'Report': '.fa-chart-pie' };
         const iconClass = iconMap[viewId.replace('view-', '')];
         const targetIcon = document.querySelector(iconClass);
         if (targetIcon) targetIcon.parentElement.classList.add('active');
     }
 
-    // 6. Refresh data jika ke Home
-    if (viewId.includes('Home') && typeof updateUI === 'function') {
+    // 6. Refresh data jika ke Home, History, atau Report
+    if ((viewId.includes('Home') || viewId.includes('History') || viewId.includes('Report')) && typeof updateUI === 'function') {
         updateUI();
     }
 }
@@ -1324,7 +1448,30 @@ function editProject(id) {
     }, 200);
 }
     
-    async function saveNewProject() {
+    // --- FUNGSI PEMBERSIH FORM (Tambahkan ini agar bisa dipakai berkali-kali) ---
+function resetProjectForm() {
+    const form = document.getElementById('projectForm');
+    if (form) form.reset();
+
+    // Pastikan ID edit kosong agar tidak menimpa data lama
+    document.getElementById('edit-id').value = "";
+    
+    // Reset urusan gambar
+    const fileInput = document.getElementById('cImageFile');
+    const fileLabel = document.getElementById('file-label');
+    const imgHidden = document.getElementById('cImage');
+    const imgPos = document.getElementById('cImagePos');
+
+    if (fileInput) fileInput.value = "";
+    if (imgHidden) imgHidden.value = "";
+    if (imgPos) imgPos.value = "center";
+    if (fileLabel) {
+        fileLabel.innerText = "Klik untuk upload foto (Auto-Compress)";
+        fileLabel.style.color = "var(--text-dim)";
+    }
+}
+
+async function saveNewProject() {
     const editId = document.getElementById('edit-id').value;
     const client = document.getElementById('cName').value;
     const feeRaw = document.getElementById('cFee').value.replace(/\D/g, "");
@@ -1341,10 +1488,25 @@ function editProject(id) {
         oldProject = projects.find(p => p.id == editId);
     }
 
+    // --- LOGIKA CERDAS GAMBAR & POSISI ---
+    const fileInput = document.getElementById('cImageFile');
+    const statusEl = document.getElementById('upload-status');
+    
+    let imageUrl = oldProject ? oldProject.image : (document.getElementById('cImage')?.value || "");
+
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+        if(statusEl) statusEl.style.display = 'block';
+        showToast("⏳ Mengompres & Upload Foto Baru...");
+        
+        const uploadedUrl = await uploadFileToSupabase(fileInput.files[0]);
+        if (uploadedUrl) {
+            imageUrl = uploadedUrl; 
+        }
+        if(statusEl) statusEl.style.display = 'none';
+    }
+
     const today = new Date();
     const stringToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-    // Ambil nilai dari input cStartDate (Tempat kita naruh 25 Des tadi)
     const manualDateInput = document.getElementById('cStartDate').value;
 
     const projectData = {
@@ -1359,12 +1521,10 @@ function editProject(id) {
         process: isRekap ? 'Selesai' : (oldProject ? oldProject.process : 'Antrean'),
         deadline: document.getElementById('cDeadlineValue').value,
         note: document.getElementById('cNote').value,
-        
-        // Pakai input manual agar tanggal 25 Des kawan tersimpan!
         startDate: manualDateInput || (oldProject ? oldProject.startDate : stringToday),
         dateAdded: manualDateInput || (oldProject ? oldProject.dateAdded : stringToday),
-        
-        image: document.getElementById('cImage')?.value || ""
+        image: imageUrl,
+        imagePos: document.getElementById('cImagePos')?.value || "center"
     };
 
     if(editId) { 
@@ -1374,30 +1534,35 @@ function editProject(id) {
         projects.push(projectData); 
     }
 
-    showToast("⏳ Menyinkronkan ke Cloud...");
+    showToast("⏳ Menyimpan ke Supabase...");
+
     try {
+        const { error } = await _supabase
+            .from('projects')
+            .upsert(projectData);
+
+        if (error) throw error;
+
         localStorage.setItem(DB_KEY, JSON.stringify(projects));
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify({ action: 'save', projects: projects })
-        });
         showToast("✅ Berhasil Disimpan kawan!");
+
+        // --- RESET UI & NAVIGASI ---
         setTimeout(() => { 
-            updateUI();             // Update tampilan daftar proyek
-            runReportAnalytics();    // Update angka-angka dashboard
-            navigate('Home');       // Balik ke dashboard tanpa restart
+            if (typeof updateUI === 'function') updateUI();
+            if (typeof renderPortfolio === 'function') renderPortfolio();
+            if (typeof runReportAnalytics === 'function') runReportAnalytics();
             
-            // Bersihkan form agar saat buka lagi sudah kosong
-            if(document.getElementById('projectForm')) {
-                document.getElementById('projectForm').reset();
-            }
-            document.getElementById('edit-id').value = ""; 
+            navigate('Home');
+            
+            // Panggil pembersih total di sini
+            resetProjectForm();
+            
         }, 1200);
 
     } catch (err) {
-        console.error(err);
-        showToast("⚠️ Gagal Sinkron Cloud!");
+        console.error("Gagal simpan ke Supabase:", err);
+        showToast("⚠️ Gagal Cloud! Tersimpan Lokal.");
+        updateUI();
     }
 }
 
@@ -1411,25 +1576,27 @@ function editProject(id) {
     const dataValues = [];
     const now = new Date();
 
+    // Ambil data 7 hari terakhir
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(now.getDate() - i);
+        // Format: "22 Feb"
         const label = d.toLocaleDateString('id-ID', {day:'2-digit', month:'short'});
         labels.push(label); 
         
         const totalHariIni = projects.reduce((sum, p) => {
-            if (String(p.dateAdded) === label) {
-                return sum + (p.status === 'Paid' ? (Number(p.fee)||0) : (Number(p.dp)||0));
+            // Cek dateAdded atau dateadded (antisipasi Supabase)
+            const pDate = p.dateAdded || p.dateadded || "";
+            if (String(pDate).includes(label)) {
+                const status = (p.status || "").toLowerCase();
+                return sum + (status === 'paid' ? (Number(p.fee)||0) : (Number(p.dp)||0));
             }
             return sum;
         }, 0);
         dataValues.push(totalHariIni);
     }
 
-    // RESET CHART LAMA AGAR TIDAK HILANG/ERROR
-    if (window.myChart) {
-        window.myChart.destroy();
-    }
+    if (window.myChart) { window.myChart.destroy(); }
     
     window.myChart = new Chart(ctx, {
         type: 'line',
@@ -1441,15 +1608,14 @@ function editProject(id) {
                 borderColor: '#2dd4bf', 
                 tension: 0.4, 
                 fill: true, 
-                backgroundColor: 'rgba(45, 212, 191, 0.1)', 
+                backgroundColor: 'rgba(45, 212, 191, 0.05)', 
                 pointRadius: 4,
                 borderWidth: 3
             }] 
         },
         options: { 
             responsive: true,
-            maintainAspectRatio: false, // WAJIB FALSE: Agar tinggi mengikuti container 300px tadi
-            animation: { duration: 1000 },
+            maintainAspectRatio: false,
             plugins: { legend: { display: false } }, 
             scales: { 
                 y: { display: false, beginAtZero: true }, 
@@ -1523,38 +1689,36 @@ function editProject(id) {
     if (!p) return;
 
     // 1. Logika Perubahan Data
+    let updatedData = {};
     if (type === 'pay') {
         p.status = p.status === 'Paid' ? 'Unpaid' : 'Paid';
+        updatedData = { status: p.status };
     } else if (type === 'work') {
         const flow = ['Antrean', 'Proses', 'Selesai'];
         let idx = flow.indexOf(p.process);
+        if (idx === -1) idx = 0; // Jaga-jaga jika data null
         p.process = flow[(idx + 1) % flow.length];
+        updatedData = { process: p.process };
     }
 
-    // 2. Simpan ke Lokal VSCode
+    // 2. Simpan ke Lokal (Agar UI responsif)
     localStorage.setItem(DB_KEY, JSON.stringify(projects));
-    updateUI(); // Supaya tampilan langsung berubah
+    updateUI(); 
 
-    // 3. KIRIM KE GOOGLE SHEETS (CLOUD)
-    // Pastikan SCRIPT_URL sudah benar di bagian atas kode kamu
-    showToast("⏳ Menyelaraskan ke Cloud...");
+    // 3. KIRIM KE SUPABASE (CLOUD)
+    showToast("⏳ Sinkron ke Supabase...");
 
     try {
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'update_single', // Perintah ini harus sama dengan di code.gs
-                id: p.id,
-                status: p.status,
-                process: p.process
-            })
-        });
-        showToast("✅ Database Cloud Diperbarui!");
+        const { error } = await _supabase
+            .from('projects')
+            .update(updatedData)
+            .eq('id', id);
+
+        if (error) throw error;
+        showToast("✅ Cloud Diperbarui!");
     } catch (err) {
-        console.error("Gagal sinkron:", err);
-        showToast("⚠️ Hanya tersimpan di perangkat ini.");
+        console.error("Gagal sinkron Supabase:", err);
+        showToast("⚠️ Hanya tersimpan lokal.");
     }
 }
     function handleSuggest(v, m) {
@@ -1580,19 +1744,67 @@ function resetAllData() {
 }
 
 // 2. Fungsi Simpan Info Bank (Berdiri Sendiri)
-function savePaymentInfo() {
+async function savePaymentInfo() {
     const bank = document.getElementById('my-bank-name').value;
     const acc = document.getElementById('my-bank-acc').value;
-    localStorage.setItem('designer_bank_info', JSON.stringify({bank, acc}));
-    alert("Info pembayaran berhasil disimpan!");
+
+    if(!bank || !acc) return showToast("⚠️ Bank dan No. Rekening harus diisi!");
+
+    const bankData = {
+        id: 'user_bank_single', // ID paten agar tidak duplikat di tabel
+        bank_name: bank,
+        account_number: acc
+    };
+
+    showToast("⏳ Sinkronisasi ke Cloud...");
+
+    try {
+        // 1. Simpan ke Supabase (Tabel: bank_info)
+        const { error } = await _supabase
+            .from('bank_info')
+            .upsert(bankData);
+
+        if (error) throw error;
+
+        // 2. Backup ke LocalStorage
+        localStorage.setItem('designer_bank_info', JSON.stringify({bank, acc}));
+        
+        showToast("✅ Rekening berhasil di-cloud!");
+    } catch (err) {
+        console.error("Gagal simpan bank:", err);
+        showToast("⚠️ Gagal ke Cloud, tersimpan lokal.");
+    }
 }
 
 // 3. Fungsi Muat Data Bank (Berdiri Sendiri)
-function loadPaymentInfo() {
+async function loadPaymentInfo() {
+    // 1. Ambil cepat dari LocalStorage (jika ada)
     const savedBank = JSON.parse(localStorage.getItem('designer_bank_info'));
     if(savedBank) {
         if(document.getElementById('my-bank-name')) document.getElementById('my-bank-name').value = savedBank.bank || '';
         if(document.getElementById('my-bank-acc')) document.getElementById('my-bank-acc').value = savedBank.acc || '';
+    }
+
+    // 2. Ambil data asli dari Supabase
+    try {
+        const { data, error } = await _supabase
+            .from('bank_info')
+            .select('*')
+            .eq('id', 'user_bank_single')
+            .single();
+
+        if (data && !error) {
+            // Update UI & LocalStorage dengan data dari Cloud
+            if(document.getElementById('my-bank-name')) document.getElementById('my-bank-name').value = data.bank_name;
+            if(document.getElementById('my-bank-acc')) document.getElementById('my-bank-acc').value = data.account_number;
+            
+            localStorage.setItem('designer_bank_info', JSON.stringify({
+                bank: data.bank_name, 
+                acc: data.account_number
+            }));
+        }
+    } catch (err) {
+        console.log("Belum ada data bank di Cloud.");
     }
 }
 
@@ -1839,7 +2051,9 @@ function runReportAnalytics() {
     const totalRevenue = projects.reduce((sum, p) => {
         const fee = Number(p.fee) || 0;
         const dp = Number(p.dp) || 0;
-        return sum + (p.status === 'Paid' ? fee : dp);
+        // PERBAIKAN: Gunakan toLowerCase agar sinkron dengan database
+        const status = (p.status || "").toLowerCase();
+        return sum + (status === 'paid' ? fee : dp);
     }, 0);
     const avgFee = totalProyek > 0 ? Math.round(totalPotential / totalProyek) : 0;
 
@@ -1860,13 +2074,15 @@ function runReportAnalytics() {
         const pType = p.type || "Lainnya";
         const pClient = p.client || "Unknown";
         const pSoftware = p.software || "-";
-        const pProcess = p.process || "Antrean"; // Kolom process kamu
+        
+        // PERBAIKAN: Ambil pProcess dan normalkan huruf depannya (Capital Case)
+        let rawProcess = p.process || "Antrean";
+        const pProcess = rawProcess.charAt(0).toUpperCase() + rawProcess.slice(1).toLowerCase();
 
         // Hitung Status Workflow (Untuk Grafik)
         if (workflowStats.hasOwnProperty(pProcess)) {
             workflowStats[pProcess]++;
         } else {
-            // Jika ada nama status lain selain 3 itu
             workflowStats[pProcess] = (workflowStats[pProcess] || 0) + 1;
         }
 
@@ -1927,17 +2143,14 @@ function runReportAnalytics() {
     }
 
     // 6. Sinkronisasi SEMUA Chart
-    // Chart Mingguan
     if(typeof initWeeklyChart === 'function') initWeeklyChart();
 
-    // Chart Donut (Berdasarkan Revenue per Type)
     if(typeof initDonutChart === 'function') {
         const catData = {};
         Object.entries(typeStats).forEach(([k,v]) => { catData[k] = v.rev; });
         initDonutChart(catData);
     }
 
-    // Chart Workflow (Antrean, Proses, Selesai) - MENGGUNAKAN KOLOM 'process'
     if(typeof initWorkflowChart === 'function') {
         initWorkflowChart(workflowStats);
     }
@@ -1983,16 +2196,20 @@ function renderCalendar() {
     for (let d = 1; d <= lastDate; d++) {
         const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         
-        // Indikator deadline di kalender
+        // Logika Status
         const hasDeadline = projects.some(p => p.deadline === dateStr && p.process !== 'Selesai');
         const isToday = d === realToday.getDate() && m === realToday.getMonth() && y === realToday.getFullYear();
         const isSelected = selectedCalDate === dateStr;
 
+        // Tentukan Class CSS
+        let classList = "cal-date";
+        if (isToday) classList += " is-today";
+        if (isSelected) classList += " selected";
+        if (hasDeadline) classList += " has-task"; // Class baru untuk kotak merah
+
         grid.innerHTML += `
-            <div class="cal-date ${isToday ? 'is-today' : ''} ${isSelected ? 'selected' : ''}" 
-                 onclick="filterByDate('${dateStr}')">
+            <div class="${classList}" onclick="filterByDate('${dateStr}')">
                 ${d}
-                ${hasDeadline ? '<span class="deadline-dot" style="width:4px;height:4px;background:var(--danger);border-radius:50%;position:absolute;bottom:5px;left:50%;transform:translateX(-50%);"></span>' : ''}
             </div>`;
     }
 }
@@ -2028,22 +2245,121 @@ async function syncStatusToCloud(projectId, status, process) {
     }
 }
 
+// 1. MESIN KOMPRES GAMBAR
+async function compressImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // Atur maksimal lebar 800px (sudah cukup tajam untuk HP)
+                const maxWidth = 800;
+                const scale = maxWidth / img.width;
+                canvas.width = maxWidth;
+                canvas.height = img.height * scale;
 
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // Kompres kualitas ke 0.7 (70%)
+                canvas.toBlob((blob) => {
+                    resolve(blob);
+                }, 'image/jpeg', 0.7);
+            };
+        };
+    });
+}
+
+// 2. TUKANG UPLOAD KE STORAGE
+async function uploadFileToSupabase(file) {
+    if (!file) return null;
+    
+    // Jalankan kompresi dulu
+    const compressedBlob = await compressImage(file);
+    
+    // Buat nama file unik agar tidak bentrok
+    const fileName = `portfolio_${Date.now()}.jpg`;
+
+    try {
+        const { data, error } = await _supabase.storage
+            .from('portfolios') // Pastikan nama bucket di Supabase sama
+            .upload(fileName, compressedBlob, {
+                contentType: 'image/jpeg'
+            });
+
+        if (error) throw error;
+
+        // Ambil URL publiknya
+        const { data: { publicUrl } } = _supabase.storage
+            .from('portfolios')
+            .getPublicUrl(fileName);
+
+        return publicUrl;
+    } catch (err) {
+        console.error("Gagal upload/kompres:", err);
+        return null;
+    }
+}
+
+function handleFileSelect(input) {
+    const label = document.getElementById('file-label');
+    if (input.files && input.files[0]) {
+        label.innerText = "File terpilih: " + input.files[0].name;
+        label.style.color = "var(--accent)";
+    } else {
+        label.innerText = "Klik untuk upload foto (Auto-Compress)";
+        label.style.color = "var(--text-dim)";
+    }
+}
+
+function resetProjectForm() {
+    // 1. Reset form HTML standar
+    const form = document.getElementById('projectForm');
+    if (form) form.reset();
+
+    // 2. Bersihkan ID edit (Paling Penting! Biar nggak numpuk ke data lama)
+    const editIdInput = document.getElementById('edit-id');
+    if (editIdInput) editIdInput.value = "";
+
+    // 3. Bersihkan input hidden & label file upload
+    const imgHidden = document.getElementById('cImage');
+    const fileInput = document.getElementById('cImageFile');
+    const fileLabel = document.getElementById('file-label');
+    const imgPos = document.getElementById('cImagePos');
+
+    if (imgHidden) imgHidden.value = "";
+    if (fileInput) fileInput.value = "";
+    if (imgPos) imgPos.value = "center";
+    if (fileLabel) {
+        fileLabel.innerText = "Pilih Foto atau Ambil Gambar";
+        fileLabel.style.color = "var(--text-dim)";
+    }
+
+    // 4. Bersihkan status upload jika masih nyangkut
+    const statusEl = document.getElementById('upload-status');
+    if (statusEl) statusEl.style.display = 'none';
+}
     
 // --- 8. INITIAL LOAD (VERSI FINAL & PWA READY) ---
 window.onload = async () => {
     console.log("🚀 Memulai aplikasi...");
 
-    // --- LOGIKA SPLASH SCREEN (MULAI) ---
+    // --- LOGIKA SPLASH SCREEN ---
     const splash = document.getElementById('splash-screen');
-    // --- LOGIKA SPLASH SCREEN (SELESAI) ---
 
-    // 1. Jalankan fungsi UI dasar (Data Lokal)
+    // 1. Jalankan fungsi UI dasar (Data Lokal) - Biar instan tampil
     if (typeof updateUI === 'function') updateUI();
     if (typeof initChart === 'function') initChart();
     
     loadProfile();           
     renderPortfolio();       
+    
+    // Tarik data bank dari LocalStorage agar form tidak kosong saat splash
+    if (typeof loadPaymentInfo === 'function') loadPaymentInfo(); 
+    
     saveAndRenderPayments(); 
     if (typeof initPortfolioDrag === 'function') initPortfolioDrag();
     if (typeof filterWorklog === 'function') filterWorklog();
@@ -2055,25 +2371,27 @@ window.onload = async () => {
 
     // 3. SINKRONISASI CLOUD (Kunci Utama)
     if (typeof fetchOnlineData === 'function') {
-        console.log("☁️ Mengambil data terbaru dari Google Sheets...");
+        console.log("☁️ Mengambil data terbaru dari Cloud...");
         
-        // Gunakan await agar kode di bawahnya tidak jalan sebelum data masuk
-        await fetchOnlineData(); 
+        // Ambil data proyek & data bank secara paralel (barengan)
+        await Promise.all([
+            fetchOnlineData(),
+            typeof loadPaymentInfo === 'function' ? loadPaymentInfo() : Promise.resolve()
+        ]);
         
         // 4. PAKSA UPDATE SETELAH DATA MASUK
-        console.log("🔄 Data Cloud diterima, merefresh Workflow...");
+        console.log("🔄 Data Cloud diterima, merefresh Dashboard...");
         
-        // Beri jeda 1 detik untuk memastikan variabel 'projects' sudah terisi
         setTimeout(() => {
             if (typeof runReportAnalytics === 'function') {
-                runReportAnalytics(); // Jalankan fungsi analisis yang baru diperbaiki
+                runReportAnalytics(); 
             }
             
-            // Update UI lainnya agar sinkron
+            // Update UI agar semua angka dan info bank terbaru muncul
             if (typeof updateUI === 'function') updateUI();
             if (typeof initChart === 'function') initChart();
             
-            console.log("✅ Dashboard & Workflow Siap!");
+            console.log("✅ Dashboard & Rekening Siap!");
 
             // --- HILANGKAN SPLASH SCREEN SECARA HALUS ---
             if (splash) {
@@ -2084,7 +2402,7 @@ window.onload = async () => {
             }
         }, 1000); 
     } else {
-        // Jika tidak ada fetch data online, tetap hilangkan splash setelah 2 detik
+        // Jika tidak ada fetch online, hilangkan splash setelah 2 detik
         setTimeout(() => {
             if (splash) {
                 splash.classList.add('splash-fade-out');
@@ -2108,19 +2426,3 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
