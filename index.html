@@ -1744,69 +1744,125 @@ function resetAllData() {
 }
 
 // 2. Fungsi Simpan Info Bank (Berdiri Sendiri)
-async function savePaymentInfo() {
-    const bank = document.getElementById('my-bank-name').value;
-    const acc = document.getElementById('my-bank-acc').value;
-
-    if(!bank || !acc) return showToast("⚠️ Bank dan No. Rekening harus diisi!");
-
-    const bankData = {
-        id: 'user_bank_single', // ID paten agar tidak duplikat di tabel
-        bank_name: bank,
-        account_number: acc
-    };
-
-    showToast("⏳ Sinkronisasi ke Cloud...");
+// Menggunakan window. agar fungsi terbaca secara global oleh tombol HTML
+window.addPaymentMethod = async function() {
+    console.log("🟢 Fungsi addPaymentMethod dimulai...");
 
     try {
-        // 1. Simpan ke Supabase (Tabel: bank_info)
+        // 1. Ambil elemen berdasarkan ID yang ada di HTML
+        const bankInput = document.getElementById('bankName');
+        const bankNumber = document.getElementById('bankNumber');
+        const bankUser = document.getElementById('bankUser'); 
+
+        if (!bankInput || !bankNumber || !bankUser) {
+            console.error("❌ Elemen input (bankName/bankNumber/bankUser) tidak ditemukan di HTML!");
+            return;
+        }
+
+        const bank = bankInput.value.trim();
+        const acc = bankNumber.value.trim();
+        const user = bankUser.value.trim();
+
+        if (!bank || !acc || !user) {
+            const msg = "⚠️ Nama Bank, Nama Pemilik, dan No. Rekening harus diisi!";
+            if (typeof showToast === "function") showToast(msg);
+            else alert(msg);
+            return;
+        }
+
+        // 2. Susun data (Sekarang menyertakan account_holder)
+        const bankData = {
+            id: 'user_bank_single', 
+            bank_name: bank,        
+            account_number: acc,
+            account_holder: user
+        };
+
+        console.log("⏳ Sedang sinkronisasi ke Cloud...");
+        if (typeof showToast === "function") showToast("⏳ Sinkronisasi ke Cloud...");
+
+        // 3. Eksekusi ke Supabase
         const { error } = await _supabase
             .from('bank_info')
-            .upsert(bankData);
+            .upsert(bankData, { onConflict: 'id' });
 
         if (error) throw error;
 
-        // 2. Backup ke LocalStorage
-        localStorage.setItem('designer_bank_info', JSON.stringify({bank, acc}));
+        // 4. Backup lokal
+        localStorage.setItem('designer_bank_info', JSON.stringify({
+            bank: bank, 
+            acc: acc, 
+            user: user
+        }));
         
-        showToast("✅ Rekening berhasil di-cloud!");
+        console.log("✅ Berhasil Cloud!");
+        if (typeof showToast === "function") showToast("✅ Rekening berhasil disimpan!");
+        else alert("✅ Rekening berhasil disimpan!");
+
+        // 5. Panggil fungsi render jika kamu punya daftar tabel di bawahnya
+        if (typeof renderBankList === "function") {
+            renderBankList();
+        }
+
     } catch (err) {
-        console.error("Gagal simpan bank:", err);
-        showToast("⚠️ Gagal ke Cloud, tersimpan lokal.");
+        console.error("💥 Error detail:", err.message);
+        const errorMsg = "⚠️ Gagal ke Cloud: " + err.message;
+        if (typeof showToast === "function") showToast(errorMsg);
+        else alert(errorMsg);
     }
-}
+};
 
 // 3. Fungsi Muat Data Bank (Berdiri Sendiri)
 async function loadPaymentInfo() {
-    // 1. Ambil cepat dari LocalStorage (jika ada)
-    const savedBank = JSON.parse(localStorage.getItem('designer_bank_info'));
-    if(savedBank) {
-        if(document.getElementById('my-bank-name')) document.getElementById('my-bank-name').value = savedBank.bank || '';
-        if(document.getElementById('my-bank-acc')) document.getElementById('my-bank-acc').value = savedBank.acc || '';
+    console.log("📂 Memuat data rekening...");
+
+    const elBank = document.getElementById('bankName');
+    const elUser = document.getElementById('bankUser');
+    const elNumber = document.getElementById('bankNumber');
+
+    // 1. Ambil cepat dari LocalStorage (Agar UI langsung terisi tanpa menunggu network)
+    const saved = JSON.parse(localStorage.getItem('designer_bank_info'));
+    if (saved) {
+        if (elBank) elBank.value = saved.bank || '';
+        if (elUser) elUser.value = saved.user || '';
+        if (elNumber) elNumber.value = saved.acc || '';
+        console.log("💾 Data dimuat dari LocalStorage.");
     }
 
-    // 2. Ambil data asli dari Supabase
+    // 2. Ambil data terbaru dari Supabase (Update data paling fresh)
     try {
         const { data, error } = await _supabase
             .from('bank_info')
             .select('*')
             .eq('id', 'user_bank_single')
-            .single();
+            .maybeSingle(); 
 
-        if (data && !error) {
-            // Update UI & LocalStorage dengan data dari Cloud
-            if(document.getElementById('my-bank-name')) document.getElementById('my-bank-name').value = data.bank_name;
-            if(document.getElementById('my-bank-acc')) document.getElementById('my-bank-acc').value = data.account_number;
+        if (error) throw error;
+
+        if (data) {
+            console.log("☁️ Data rekening sinkron dengan Cloud.");
             
+            // Update elemen HTML dengan data asli dari database
+            if (elBank) elBank.value = data.bank_name || '';
+            if (elUser) elUser.value = data.account_holder || '';
+            if (elNumber) elNumber.value = data.account_number || '';
+            
+            // Sinkronkan kembali ke LocalStorage agar data lokal selalu akurat
             localStorage.setItem('designer_bank_info', JSON.stringify({
-                bank: data.bank_name, 
+                bank: data.bank_name,
+                user: data.account_holder,
                 acc: data.account_number
             }));
+        } else {
+            console.log("☁️ Belum ada data rekening di Cloud.");
         }
     } catch (err) {
-        console.log("Belum ada data bank di Cloud.");
+        console.warn("⚠️ Kendala sinkronisasi Cloud:", err.message);
     }
 }
+
+// Pastikan fungsi ini dipanggil saat halaman selesai dimuat kawan!
+document.addEventListener('DOMContentLoaded', loadPaymentInfo);
 
 function copyProyekInvoice() {
     const savedBank = JSON.parse(localStorage.getItem('designer_bank_info'));
