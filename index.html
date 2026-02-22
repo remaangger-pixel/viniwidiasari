@@ -855,6 +855,8 @@
     let miniCalDate = new Date();
     let selectedCalDate = null;
 
+    
+
     // --- FUNGSI BARU: AMBIL DATA DARI GOOGLE SHEETS SAAT START ---
     async function fetchOnlineData() {
     try {
@@ -1227,73 +1229,99 @@
     } 
 }
 
-    function editProject(id) {
-    console.log("Memulai proses edit untuk ID:", id);
+    function navigate(viewId, el) {
+    console.log("Mencoba pindah ke halaman: " + viewId);
     
-    // 1. Cari data (pakai == agar aman)
-    const p = projects.find(proj => proj.id == id); 
-    if(!p) {
-        alert("Data tidak ditemukan!");
-        return;
-    }
+    // 1. Simpan posisi ke variabel global
+    currentView = viewId;
 
-    // 2. PINDAH HALAMAN DULU (Sangat penting agar tidak mental)
-    // Kita panggil fungsi navigasi bawaan kodemu
-    if (typeof navigate === 'function') {
-        navigate('Add'); 
+    // 2. Daftar semua ID halaman asli di HTML kamu (Pakai awalan 'view-')
+    const pages = ['view-Home', 'view-History', 'view-Add', 'view-Report', 'view-Profile'];
+
+    // 3. Sembunyikan SEMUA halaman
+    pages.forEach(id => {
+        const page = document.getElementById(id);
+        if (page) {
+            page.style.display = 'none';
+            page.classList.remove('active');
+            page.classList.add('hidden'); // Menambah class hidden agar aman
+        }
+    });
+
+    // 4. Cari target (Cek apakah pakai 'view-' atau tidak)
+    let finalTargetId = viewId.startsWith('view-') ? viewId : 'view-' + viewId;
+    const target = document.getElementById(finalTargetId);
+
+    if (target) {
+        target.style.display = 'block';
+        target.classList.remove('hidden');
+        setTimeout(() => {
+            target.classList.add('active');
+        }, 10);
+        console.log("✅ Berhasil pindah ke: " + finalTargetId);
     } else {
-        // Fallback jika navigate gagal, kita pakai logika manual kodemu
-        showView('add'); 
+        console.error("❌ ID halaman TIDAK ADA di HTML: " + finalTargetId);
     }
 
-    // 3. TUTUP DETAIL SETELAH NAVIGASI JALAN
-    setTimeout(() => {
-        if (typeof closeDetail === 'function') closeDetail();
-    }, 50);
+    // 5. Update warna menu bawah (Navbar)
+    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+    if (el) {
+        el.classList.add('active');
+    } else {
+        // Jika dipanggil dari tombol Edit, cari ikon yang pas
+        const iconMap = { 'Home': '.fa-home', 'Add': '.fa-plus', 'History': '.fa-clock', 'Profile': '.fa-user', 'Report': '.fa-chart-pie' };
+        const iconClass = iconMap[viewId.replace('view-', '')];
+        const targetIcon = document.querySelector(iconClass);
+        if (targetIcon) targetIcon.parentElement.classList.add('active');
+    }
 
-    // 4. ISI DATA KE FORM (Kasih jeda agar halaman Add sudah siap)
+    // 6. Refresh data jika ke Home
+    if (viewId.includes('Home') && typeof updateUI === 'function') {
+        updateUI();
+    }
+}
+
+// --- FUNGSI EDIT PROJECT ---
+function editProject(id) {
+    const p = projects.find(proj => proj.id == id); 
+    if(!p) return;
+
+    if (typeof closeDetail === 'function') closeDetail(); 
+    
+    // Sekarang navigate sudah ada dan bisa dipanggil
+    navigate('Add'); 
+
     setTimeout(() => {
         try {
-            // Pastikan ID tersimpan agar sistem tahu ini MODE EDIT
             document.getElementById('edit-id').value = p.id;
-            
-            // Isi field teks
             document.getElementById('cName').value = p.client || '';
             document.getElementById('cType').value = p.type || 'Design';
             document.getElementById('cSoftware').value = p.software || '-';
             
-            // Format angka
             document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
             document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
             
-            // TANGGAL MASUK (cStartDate)
+            // TANGGAL MASUK (Agar bisa diedit ke 25 Des)
             const tglMasuk = p.dateAdded || p.startDate || '';
             document.getElementById('cStartDate').value = tglMasuk;
+            
             if(document.getElementById('cStartDateDisplay')) {
                 document.getElementById('cStartDateDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(tglMasuk) : tglMasuk;
             }
 
-            // DEADLINE
             document.getElementById('cDeadlineValue').value = p.deadline || '';
             if(document.getElementById('cDeadlineDisplay')) {
                 document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
             }
 
-            // Sisa field
             document.getElementById('cPriority').value = p.priority || 'medium';
             document.getElementById('cNote').value = p.note || '';
-            if(document.getElementById('cImage')) {
-                document.getElementById('cImage').value = p.image || '';
-            }
-
-            // UBAH TOMBOL
-            document.getElementById('btn-main-submit').innerText = "Simpan Perubahan";
             
-            console.log("✅ Form berhasil diisi untuk client:", p.client);
+            document.getElementById('btn-main-submit').innerText = "Simpan Perubahan";
         } catch (err) {
-            console.error("Gagal mengisi form:", err);
+            console.error("Error Detail Edit:", err);
         }
-    }, 200); // Jeda sedikit lebih lama agar pasti muncul
+    }, 200);
 }
     
     async function saveNewProject() {
@@ -1355,7 +1383,18 @@
             body: JSON.stringify({ action: 'save', projects: projects })
         });
         showToast("✅ Berhasil Disimpan kawan!");
-        setTimeout(() => { location.reload(); }, 1200);
+        setTimeout(() => { 
+            updateUI();             // Update tampilan daftar proyek
+            runReportAnalytics();    // Update angka-angka dashboard
+            navigate('Home');       // Balik ke dashboard tanpa restart
+            
+            // Bersihkan form agar saat buka lagi sudah kosong
+            if(document.getElementById('projectForm')) {
+                document.getElementById('projectForm').reset();
+            }
+            document.getElementById('edit-id').value = ""; 
+        }, 1200);
+
     } catch (err) {
         console.error(err);
         showToast("⚠️ Gagal Sinkron Cloud!");
@@ -1479,12 +1518,45 @@
     }
 }
     function setFilter(t, el) { currentFilter=t; document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); el.classList.add('active'); updateUI(); }
-    function updateStatus(id, m) { 
-        const i = projects.findIndex(p=>p.id===id); 
-        if(m==='pay') projects[i].status = projects[i].status==='Paid'?'Unpaid':'Paid';
-        else { const f=['Antrean','Proses','Selesai']; projects[i].process = f[(f.indexOf(projects[i].process)+1)%3]; }
-        localStorage.setItem(DB_KEY, JSON.stringify(projects)); updateUI();
+    async function updateStatus(id, type) {
+    const p = projects.find(x => x.id == id);
+    if (!p) return;
+
+    // 1. Logika Perubahan Data
+    if (type === 'pay') {
+        p.status = p.status === 'Paid' ? 'Unpaid' : 'Paid';
+    } else if (type === 'work') {
+        const flow = ['Antrean', 'Proses', 'Selesai'];
+        let idx = flow.indexOf(p.process);
+        p.process = flow[(idx + 1) % flow.length];
     }
+
+    // 2. Simpan ke Lokal VSCode
+    localStorage.setItem(DB_KEY, JSON.stringify(projects));
+    updateUI(); // Supaya tampilan langsung berubah
+
+    // 3. KIRIM KE GOOGLE SHEETS (CLOUD)
+    // Pastikan SCRIPT_URL sudah benar di bagian atas kode kamu
+    showToast("⏳ Menyelaraskan ke Cloud...");
+
+    try {
+        await fetch(SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'update_single', // Perintah ini harus sama dengan di code.gs
+                id: p.id,
+                status: p.status,
+                process: p.process
+            })
+        });
+        showToast("✅ Database Cloud Diperbarui!");
+    } catch (err) {
+        console.error("Gagal sinkron:", err);
+        showToast("⚠️ Hanya tersimpan di perangkat ini.");
+    }
+}
     function handleSuggest(v, m) {
         let b = m==='client'?'suggestBox':(m==='type'?'typeSuggestBox':'softwareSuggestBox');
         const box = document.getElementById(b); if(!v) { box.style.display='none'; return; }
@@ -1885,6 +1957,78 @@ function formatDateIndo(dateStr) {
     }
     return dateStr;
 }
+
+// --- 7.5 KALENDER WORKLOG ---
+function renderCalendar() {
+    const grid = document.getElementById('cal-grid-days');
+    const monthName = document.getElementById('cal-month-name');
+    if (!grid || !monthName) return;
+
+    // Reset grid & Header Hari
+    grid.innerHTML = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+        .map(d => `<div class="cal-day-label">${d}</div>`).join('');
+
+    const y = calDate.getFullYear();
+    const m = calDate.getMonth();
+    const firstDay = new Date(y, m, 1).getDay();
+    const lastDate = new Date(y, m + 1, 0).getDate();
+    const realToday = new Date();
+
+    monthName.innerText = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(calDate);
+
+    // Padding hari kosong
+    for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+
+    // Render Tanggal
+    for (let d = 1; d <= lastDate; d++) {
+        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        
+        // Indikator deadline di kalender
+        const hasDeadline = projects.some(p => p.deadline === dateStr && p.process !== 'Selesai');
+        const isToday = d === realToday.getDate() && m === realToday.getMonth() && y === realToday.getFullYear();
+        const isSelected = selectedCalDate === dateStr;
+
+        grid.innerHTML += `
+            <div class="cal-date ${isToday ? 'is-today' : ''} ${isSelected ? 'selected' : ''}" 
+                 onclick="filterByDate('${dateStr}')">
+                ${d}
+                ${hasDeadline ? '<span class="deadline-dot" style="width:4px;height:4px;background:var(--danger);border-radius:50%;position:absolute;bottom:5px;left:50%;transform:translateX(-50%);"></span>' : ''}
+            </div>`;
+    }
+}
+
+function moveMonth(dir) {
+    calDate.setMonth(calDate.getMonth() + dir);
+    renderCalendar();
+}
+
+function filterByDate(dateStr) {
+    selectedCalDate = (selectedCalDate === dateStr) ? null : dateStr;
+    renderCalendar();
+    updateUI(); // Pastikan updateUI kamu memfilter berdasarkan selectedCalDate
+}
+
+async function syncStatusToCloud(projectId, status, process) {
+    console.log("Menyelaraskan ke Cloud...");
+    try {
+        await fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "update_single",
+                id: projectId,
+                status: status,
+                process: process
+            })
+        });
+        showToast("✅ Cloud Sinkron!");
+    } catch (e) {
+        console.error("Gagal sinkron:", e);
+    }
+}
+
+
     
 // --- 8. INITIAL LOAD (VERSI FINAL & PWA READY) ---
 window.onload = async () => {
