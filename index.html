@@ -1228,50 +1228,54 @@
 }
 
     function editProject(id) {
+    // 1. Cari data proyek berdasarkan ID
     const p = projects.find(proj => proj.id === id); 
     if(!p) return;
 
+    // 2. Navigasi ke form Add/Edit
     closeDetail(); 
     navigate('Add');
 
+    // 3. Isi field teks standar
     document.getElementById('edit-id').value = p.id;
-    document.getElementById('cName').value = p.client;
-    document.getElementById('cType').value = p.type;
-    document.getElementById('cSoftware').value = p.software;
-    document.getElementById('cFee').value = p.fee.toLocaleString('id-ID');
-    document.getElementById('cDP').value = p.dp.toLocaleString('id-ID');
+    document.getElementById('cName').value = p.client || '';
+    document.getElementById('cType').value = p.type || 'Design';
+    document.getElementById('cSoftware').value = p.software || '-';
     
-    // TANGGAL DEADLINE
-    document.getElementById('cDeadlineValue').value = p.deadline;
-    // Gunakan formatDateIndo agar tampilannya bagus (misal: 31 Jan)
-    document.getElementById('cDeadlineDisplay').value = formatDateIndo(p.deadline);
+    // Fee & DP (Gunakan toLocaleString agar muncul titik ribuan)
+    document.getElementById('cFee').value = (p.fee || 0).toLocaleString('id-ID');
+    document.getElementById('cDP').value = (p.dp || 0).toLocaleString('id-ID');
+    
+    // 4. TANGGAL DEADLINE (Ada dua input: Hidden Value & Display)
+    document.getElementById('cDeadlineValue').value = p.deadline || '';
+    if (document.getElementById('cDeadlineDisplay')) {
+        document.getElementById('cDeadlineDisplay').value = formatDateIndo(p.deadline);
+    }
 
-    // --- TAMBAHAN PENTING AGAR TANGGAL MASUK TIDAK HILANG ---
+    // 5. TANGGAL PROYEK MASUK (Sesuai ID di HTML kamu: cStartDate)
+    // Kita ambil dari data 'dateAdded' yang tersimpan di Sheets
+    const valDateAdded = p.dateAdded || p.startDate || '';
+    
     if(document.getElementById('cStartDate')) {
-        document.getElementById('cStartDate').value = p.startDate || '';
+        // Ini input type="date" (hidden/main)
+        document.getElementById('cStartDate').value = valDateAdded;
     }
-    // Jika kamu punya input khusus untuk Date Added di HTML, isi juga di sini
-    if(document.getElementById('cDateAdded')) {
-        document.getElementById('cDateAdded').value = p.dateAdded || '';
+    if(document.getElementById('cStartDateDisplay')) {
+        // Ini input display yang kamu lihat di layar
+        document.getElementById('cStartDateDisplay').value = valDateAdded;
     }
 
-    document.getElementById('cPriority').value = p.priority;
-    document.getElementById('cNote').value = p.note;
+    // 6. Sisa field lainnya
+    document.getElementById('cPriority').value = p.priority || 'Normal';
+    document.getElementById('cNote').value = p.note || '';
 
     if(document.getElementById('cImage')) {
         document.getElementById('cImage').value = p.image || '';
     }
 
+    // 7. Ubah teks tombol menjadi Simpan Perubahan
     document.getElementById('btn-main-submit').innerText = "Simpan Perubahan";
 }
-
-    function navigate(viewId, el) {
-        document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
-        document.getElementById('view-' + viewId).classList.remove('hidden');
-        document.getElementById('page-title').innerText = (viewId === 'Home' ? 'Dashboard' : (viewId === 'History' ? 'Worklog' : (viewId === 'Add' ? 'Tambah Proyek' : viewId)));
-        if(el) { document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); el.classList.add('active'); }
-        updateUI();
-    }
 
     async function saveNewProject() {
     const editId = document.getElementById('edit-id').value;
@@ -1293,12 +1297,15 @@
         oldProject = projects.find(p => p.id === parseInt(editId));
     }
 
-    // Ambil tanggal hari ini dalam format YYYY-MM-DD (Manual agar aman dari timezone)
+    // Ambil tanggal hari ini dalam format YYYY-MM-DD
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     const stringToday = `${yyyy}-${mm}-${dd}`;
+
+    // Ambil nilai dari input manual di form (ID: cStartDate)
+    const manualDateInput = document.getElementById('cStartDate')?.value;
 
     const projectData = {
         id: editId ? parseInt(editId) : Date.now(),
@@ -1313,15 +1320,16 @@
         status: isRekap ? 'Paid' : (oldProject ? oldProject.status : (dp >= fee ? 'Paid' : (dp > 0 ? 'DP' : 'Unpaid'))),
         process: isRekap ? 'Selesai' : (oldProject ? oldProject.process : 'Antrean'),
         
-        // --- BAGIAN TANGGAL (DIPASTIKAN AMAN) ---
+        // --- BAGIAN TANGGAL ---
         deadline: document.getElementById('cDeadlineValue').value,
         note: document.getElementById('cNote').value,
         
-        // Jika edit, pakai startDate lama. Jika baru, pakai input atau hari ini.
-        startDate: oldProject ? oldProject.startDate : (document.getElementById('cStartDate')?.value || stringToday),
+        // StartDate: Ambil dari input manual, jika kosong pakai data lama, jika baru pakai hari ini
+        startDate: manualDateInput || (oldProject ? oldProject.startDate : stringToday),
         
-        // SOLUSI TANGGAL MASUK: Jika edit pakai data lama, jika baru pakai hari ini.
-        dateAdded: oldProject ? oldProject.dateAdded : stringToday,
+        // DateAdded (Tanggal Masuk): 
+        // Ini kuncinya! Kita ambil dari input manual agar perubahan (seperti 25 Des) tersimpan.
+        dateAdded: manualDateInput || (oldProject ? oldProject.dateAdded : stringToday),
         
         image: imageLink 
     };
@@ -1334,14 +1342,14 @@
         projects.push(projectData); 
     }
 
-    // --- PROSES SIMPAN ---
+    // --- PROSES SIMPAN (LOKAL & CLOUD) ---
     showToast("⏳ Menyinkronkan ke Cloud...");
 
     try {
         // 1. Simpan ke LocalStorage
         localStorage.setItem(DB_KEY, JSON.stringify(projects));
 
-        // 2. Kirim ke Google Sheets
+        // 2. Kirim ke Google Sheets melalui Web App Script
         await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -1354,13 +1362,13 @@
         
         showToast(msg);
 
-        // Beri jeda agar toast terlihat
+        // Beri jeda agar toast terlihat sebelum refresh
         setTimeout(() => {
             location.reload();
         }, 1200);
 
     } catch (err) {
-        console.error(err);
+        console.error("Gagal Sinkron:", err);
         showToast("⚠️ Berhasil Lokal, Gagal Sinkron Cloud.");
         setTimeout(() => {
             location.reload();
@@ -1970,6 +1978,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
