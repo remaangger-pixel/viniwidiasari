@@ -1287,16 +1287,17 @@
         software: document.getElementById('cSoftware').value || '-',
         priority: document.getElementById('cPriority').value,
         
-        // LOGIKA STATUS ANTI-RESET (SESUAI FILE KAMU)
         status: isRekap ? 'Paid' : (oldProject ? oldProject.status : (dp >= fee ? 'Paid' : (dp > 0 ? 'DP' : 'Unpaid'))),
-        
-        // Tetap gunakan proses lama (Antrean/Selesai)
         process: isRekap ? 'Selesai' : (oldProject ? oldProject.process : 'Antrean'),
         
+        // --- PERBAIKAN DI SINI ---
         deadline: document.getElementById('cDeadlineValue').value,
         note: document.getElementById('cNote').value,
-        startDate: oldProject ? oldProject.startDate : (document.getElementById('cStartDate')?.value || new Date().toLocaleDateString('id-ID', {day:'2-digit', month:'short'})),
-        dateAdded: oldProject ? oldProject.dateAdded : new Date().toLocaleDateString('id-ID', {day:'2-digit', month:'short'}),
+        
+        // Simpan dalam format YYYY-MM-DD agar stabil
+        startDate: oldProject ? oldProject.startDate : (document.getElementById('cStartDate')?.value || new Date().toISOString().split('T')[0]),
+        dateAdded: oldProject ? oldProject.dateAdded : new Date().toISOString().split('T')[0],
+        
         image: imageLink 
     };
 
@@ -1876,6 +1877,76 @@ function runReportAnalytics() {
     console.log("✅ Analisis Laporan, Efisiensi, & Workflow Selesai Dirender.");
 }
 
+    // --- TARUH FUNGSI INI DI ATAS WINDOW.ONLOAD ---
+function formatDateIndo(dateStr) {
+    if (!dateStr || dateStr === "" || dateStr.includes('undefined')) return "-";
+    if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+            return `${parts[2]} ${months[parseInt(parts[1]) - 1]}`;
+        }
+    }
+    return dateStr;
+}
+
+// --- 8. INITIAL LOAD (KODE YANG KAMU TANYAKAN) ---
+window.onload = async () => {
+    console.log("🚀 Memulai aplikasi...");
+    const splash = document.getElementById('splash-screen');
+
+    if (typeof updateUI === 'function') updateUI();
+    if (typeof initChart === 'function') initChart();
+    
+    loadProfile();           
+    renderPortfolio();       
+    saveAndRenderPayments(); 
+    if (typeof initPortfolioDrag === 'function') initPortfolioDrag();
+    if (typeof filterWorklog === 'function') filterWorklog();
+
+    if (typeof runReportAnalytics === 'function') {
+        runReportAnalytics();
+    }
+
+    if (typeof fetchOnlineData === 'function') {
+        console.log("☁️ Mengambil data terbaru dari Google Sheets...");
+        await fetchOnlineData(); 
+        
+        setTimeout(() => {
+            if (typeof runReportAnalytics === 'function') {
+                runReportAnalytics();
+            }
+            if (typeof updateUI === 'function') updateUI();
+            if (typeof initChart === 'function') initChart();
+            
+            console.log("✅ Dashboard & Workflow Siap!");
+
+            if (splash) {
+                splash.classList.add('splash-fade-out');
+                setTimeout(() => { splash.style.display = 'none'; }, 800);
+            }
+        }, 1000); 
+    } else {
+        setTimeout(() => {
+            if (splash) {
+                splash.classList.add('splash-fade-out');
+                setTimeout(() => { splash.style.display = 'none'; }, 800);
+            }
+        }, 2000);
+    }
+};
+
+// --- REGISTRASI PWA ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('✅ PWA: Service Worker Berhasil Didaftarkan!', reg.scope))
+            .catch(err => console.log('❌ PWA: Service Worker Gagal', err));
+    });
+}
+
+    
+
 // --- 8. INITIAL LOAD (VERSI FINAL & PWA READY) ---
 window.onload = async () => {
     console.log("🚀 Memulai aplikasi...");
@@ -1954,4 +2025,5 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
