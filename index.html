@@ -1240,12 +1240,24 @@
     document.getElementById('cSoftware').value = p.software;
     document.getElementById('cFee').value = p.fee.toLocaleString('id-ID');
     document.getElementById('cDP').value = p.dp.toLocaleString('id-ID');
+    
+    // TANGGAL DEADLINE
     document.getElementById('cDeadlineValue').value = p.deadline;
-    document.getElementById('cDeadlineDisplay').value = p.deadline;
+    // Gunakan formatDateIndo agar tampilannya bagus (misal: 31 Jan)
+    document.getElementById('cDeadlineDisplay').value = formatDateIndo(p.deadline);
+
+    // --- TAMBAHAN PENTING AGAR TANGGAL MASUK TIDAK HILANG ---
+    if(document.getElementById('cStartDate')) {
+        document.getElementById('cStartDate').value = p.startDate || '';
+    }
+    // Jika kamu punya input khusus untuk Date Added di HTML, isi juga di sini
+    if(document.getElementById('cDateAdded')) {
+        document.getElementById('cDateAdded').value = p.dateAdded || '';
+    }
+
     document.getElementById('cPriority').value = p.priority;
     document.getElementById('cNote').value = p.note;
 
-    // Tambahkan baris ini agar link gambar portofolio muncul saat edit
     if(document.getElementById('cImage')) {
         document.getElementById('cImage').value = p.image || '';
     }
@@ -1958,6 +1970,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
