@@ -1290,29 +1290,23 @@
     const client = document.getElementById('cName').value;
     const feeRaw = document.getElementById('cFee').value.replace(/\D/g, "");
     const dpRaw = document.getElementById('cDP').value.replace(/\D/g, "") || 0;
-    const imageLink = document.getElementById('cImage')?.value || "";
 
-    // Validasi input wajib
     if(!client || !feeRaw) return showToast("⚠️ Nama & Harga wajib diisi!");
     
     const fee = parseInt(feeRaw);
     const dp = parseInt(dpRaw);
     const isRekap = document.getElementById('cAutoRekap')?.checked;
 
-    // CARI DATA LAMA (Jika sedang mode Edit)
     let oldProject = null;
     if (editId) {
-        oldProject = projects.find(p => p.id === parseInt(editId));
+        oldProject = projects.find(p => p.id == editId);
     }
 
-    // Ambil tanggal hari ini dalam format YYYY-MM-DD
+    // Buat format tanggal hari ini YYYY-MM-DD
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const stringToday = `${yyyy}-${mm}-${dd}`;
+    const stringToday = today.toISOString().split('T')[0];
 
-    // Ambil nilai dari input manual di form (ID: cStartDate)
+    // Ambil tanggal dari input di form (ID: cStartDate)
     const manualDateInput = document.getElementById('cStartDate')?.value;
 
     const projectData = {
@@ -1323,64 +1317,39 @@
         type: document.getElementById('cType').value || 'Design',
         software: document.getElementById('cSoftware').value || '-',
         priority: document.getElementById('cPriority').value,
-        
-        // Logika Status & Proses
         status: isRekap ? 'Paid' : (oldProject ? oldProject.status : (dp >= fee ? 'Paid' : (dp > 0 ? 'DP' : 'Unpaid'))),
         process: isRekap ? 'Selesai' : (oldProject ? oldProject.process : 'Antrean'),
-        
-        // --- BAGIAN TANGGAL ---
         deadline: document.getElementById('cDeadlineValue').value,
         note: document.getElementById('cNote').value,
         
-        // StartDate: Ambil dari input manual, jika kosong pakai data lama, jika baru pakai hari ini
+        // --- KUNCI: Samakan dengan input form agar bisa diedit manual ---
         startDate: manualDateInput || (oldProject ? oldProject.startDate : stringToday),
-        
-        // DateAdded (Tanggal Masuk): 
-        // Ini kuncinya! Kita ambil dari input manual agar perubahan (seperti 25 Des) tersimpan.
         dateAdded: manualDateInput || (oldProject ? oldProject.dateAdded : stringToday),
         
-        image: imageLink 
+        image: document.getElementById('cImage')?.value || ""
     };
 
-    // Update Array Lokal
     if(editId) { 
-        const idx = projects.findIndex(p => p.id === parseInt(editId));
+        const idx = projects.findIndex(p => p.id == editId);
         if (idx !== -1) projects[idx] = projectData;
     } else { 
         projects.push(projectData); 
     }
 
-    // --- PROSES SIMPAN (LOKAL & CLOUD) ---
     showToast("⏳ Menyinkronkan ke Cloud...");
 
     try {
-        // 1. Simpan ke LocalStorage
         localStorage.setItem(DB_KEY, JSON.stringify(projects));
-
-        // 2. Kirim ke Google Sheets melalui Web App Script
         await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
             body: JSON.stringify({ action: 'save', projects: projects })
         });
-
-        const msg = editId 
-            ? "✅ Perubahan Berhasil Diperbarui!" 
-            : (isRekap ? "🚀 Proyek Rekap Berhasil Disimpan!" : "✅ Data Berhasil Disimpan kawan!");
-        
-        showToast(msg);
-
-        // Beri jeda agar toast terlihat sebelum refresh
-        setTimeout(() => {
-            location.reload();
-        }, 1200);
-
+        showToast("✅ Berhasil Disimpan kawan!");
+        setTimeout(() => { location.reload(); }, 1200);
     } catch (err) {
-        console.error("Gagal Sinkron:", err);
-        showToast("⚠️ Berhasil Lokal, Gagal Sinkron Cloud.");
-        setTimeout(() => {
-            location.reload();
-        }, 1200);
+        console.error(err);
+        showToast("⚠️ Gagal Sinkron Cloud!");
     }
 }
 
@@ -1986,6 +1955,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
