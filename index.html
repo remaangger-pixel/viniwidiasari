@@ -1268,42 +1268,53 @@
     const dpRaw = document.getElementById('cDP').value.replace(/\D/g, "") || 0;
     const imageLink = document.getElementById('cImage')?.value || "";
 
-    // Ganti alert validasi ke showToast
+    // Validasi input wajib
     if(!client || !feeRaw) return showToast("⚠️ Nama & Harga wajib diisi!");
     
     const fee = parseInt(feeRaw);
     const dp = parseInt(dpRaw);
     const isRekap = document.getElementById('cAutoRekap')?.checked;
 
-    // AMBIL DATA LAMA
+    // CARI DATA LAMA (Jika sedang mode Edit)
     let oldProject = null;
     if (editId) {
         oldProject = projects.find(p => p.id === parseInt(editId));
     }
 
+    // Ambil tanggal hari ini dalam format YYYY-MM-DD (Manual agar aman dari timezone)
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const stringToday = `${yyyy}-${mm}-${dd}`;
+
     const projectData = {
         id: editId ? parseInt(editId) : Date.now(),
-        client, 
-        fee, 
+        client: client, 
+        fee: fee, 
         dp: isRekap ? fee : dp,
         type: document.getElementById('cType').value || 'Design',
         software: document.getElementById('cSoftware').value || '-',
         priority: document.getElementById('cPriority').value,
         
+        // Logika Status & Proses
         status: isRekap ? 'Paid' : (oldProject ? oldProject.status : (dp >= fee ? 'Paid' : (dp > 0 ? 'DP' : 'Unpaid'))),
         process: isRekap ? 'Selesai' : (oldProject ? oldProject.process : 'Antrean'),
         
-        // --- PERBAIKAN DI SINI ---
+        // --- BAGIAN TANGGAL (DIPASTIKAN AMAN) ---
         deadline: document.getElementById('cDeadlineValue').value,
         note: document.getElementById('cNote').value,
         
-        // Simpan dalam format YYYY-MM-DD agar stabil
-        startDate: oldProject ? oldProject.startDate : (document.getElementById('cStartDate')?.value || new Date().toISOString().split('T')[0]),
-        dateAdded: oldProject ? oldProject.dateAdded : new Date().toISOString().split('T')[0],
+        // Jika edit, pakai startDate lama. Jika baru, pakai input atau hari ini.
+        startDate: oldProject ? oldProject.startDate : (document.getElementById('cStartDate')?.value || stringToday),
+        
+        // SOLUSI TANGGAL MASUK: Jika edit pakai data lama, jika baru pakai hari ini.
+        dateAdded: oldProject ? oldProject.dateAdded : stringToday,
         
         image: imageLink 
     };
 
+    // Update Array Lokal
     if(editId) { 
         const idx = projects.findIndex(p => p.id === parseInt(editId));
         if (idx !== -1) projects[idx] = projectData;
@@ -1311,28 +1322,27 @@
         projects.push(projectData); 
     }
 
-    // --- PROSES SIMPAN (LOKAL & CLOUD) ---
+    // --- PROSES SIMPAN ---
     showToast("⏳ Menyinkronkan ke Cloud...");
 
     try {
-        // 1. Simpan ke LocalStorage (Data Lokal)
+        // 1. Simpan ke LocalStorage
         localStorage.setItem(DB_KEY, JSON.stringify(projects));
 
-        // 2. Kirim ke Google Sheets (Data Online)
+        // 2. Kirim ke Google Sheets
         await fetch(SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
             body: JSON.stringify({ action: 'save', projects: projects })
         });
 
-        // GANTI ALERT DENGAN TOAST (NOTIFIKASI TENGAH)
         const msg = editId 
             ? "✅ Perubahan Berhasil Diperbarui!" 
             : (isRekap ? "🚀 Proyek Rekap Berhasil Disimpan!" : "✅ Data Berhasil Disimpan kawan!");
         
         showToast(msg);
 
-        // Beri jeda agar toast terlihat sebelum halaman refresh
+        // Beri jeda agar toast terlihat
         setTimeout(() => {
             location.reload();
         }, 1200);
@@ -1345,29 +1355,6 @@
         }, 1200);
     }
 }
-
-    // --- LOGIKA KALENDER UTAMA ---
-    function renderCalendar() {
-        const grid = document.getElementById('cal-grid-days');
-        if(!grid) return;
-        grid.innerHTML = ['S','M','T','W','T','F','S'].map(d => `<div class="cal-day-label">${d}</div>`).join('');
-        const year = calDate.getFullYear(), month = calDate.getMonth();
-        const t = new Date();
-        const todayStr = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-        document.getElementById('cal-month-name').innerText = new Intl.DateTimeFormat('id-ID', {month:'long', year:'numeric'}).format(calDate);
-        const firstDay = new Date(year, month, 1).getDay();
-        const days = new Date(year, month + 1, 0).getDate();
-        for(let i=0; i<firstDay; i++) grid.innerHTML += `<div></div>`;
-        for(let d=1; d<=days; d++) {
-            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-            const hasDL = projects.some(p => p.deadline === dateStr);
-            let classes = ['cal-date'];
-            if (dateStr === todayStr) classes.push('is-today');
-            if (selectedCalDate === dateStr) classes.push('active');
-            if (hasDL) classes.push('has-deadline');
-            grid.innerHTML += `<div class="${classes.join(' ')}" onclick="filterByDate('${dateStr}')">${d}</div>`;
-        }
-    }
 
     // --- CHART DASHBOARD (HOME) ---
     function initChart() {
@@ -1971,6 +1958,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
