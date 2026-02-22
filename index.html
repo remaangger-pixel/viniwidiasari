@@ -1228,53 +1228,61 @@
 }
 
     function editProject(id) {
-    // 1. Cari data proyek berdasarkan ID
-    const p = projects.find(proj => proj.id === id); 
-    if(!p) return;
+    // 1. Cari data proyek (Gunakan == agar aman meski tipe data beda teks/angka)
+    const p = projects.find(proj => proj.id == id); 
+    
+    if(!p) {
+        console.error("Data tidak ditemukan untuk ID:", id);
+        return;
+    }
 
-    // 2. Navigasi ke form Add/Edit
-    closeDetail(); 
+    // 2. Tutup detail & Navigasi ke form
+    if (typeof closeDetail === 'function') closeDetail(); 
     navigate('Add');
 
-    // 3. Isi field teks standar
-    document.getElementById('edit-id').value = p.id;
-    document.getElementById('cName').value = p.client || '';
-    document.getElementById('cType').value = p.type || 'Design';
-    document.getElementById('cSoftware').value = p.software || '-';
-    
-    // Fee & DP (Gunakan toLocaleString agar muncul titik ribuan)
-    document.getElementById('cFee').value = (p.fee || 0).toLocaleString('id-ID');
-    document.getElementById('cDP').value = (p.dp || 0).toLocaleString('id-ID');
-    
-    // 4. TANGGAL DEADLINE (Ada dua input: Hidden Value & Display)
-    document.getElementById('cDeadlineValue').value = p.deadline || '';
-    if (document.getElementById('cDeadlineDisplay')) {
-        document.getElementById('cDeadlineDisplay').value = formatDateIndo(p.deadline);
-    }
+    // 3. Gunakan sedikit jeda (setTimeout) agar form 'Add' siap dirender browser
+    setTimeout(() => {
+        // ID & Nama
+        document.getElementById('edit-id').value = p.id;
+        document.getElementById('cName').value = p.client || '';
+        document.getElementById('cType').value = p.type || 'Design';
+        document.getElementById('cSoftware').value = p.software || '-';
+        
+        // Harga & DP (Pastikan diubah ke string dulu sebelum toLocaleString)
+        document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
+        document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
+        
+        // Deadline
+        document.getElementById('cDeadlineValue').value = p.deadline || '';
+        if (document.getElementById('cDeadlineDisplay')) {
+            document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
+        }
 
-    // 5. TANGGAL PROYEK MASUK (Sesuai ID di HTML kamu: cStartDate)
-    // Kita ambil dari data 'dateAdded' yang tersimpan di Sheets
-    const valDateAdded = p.dateAdded || p.startDate || '';
-    
-    if(document.getElementById('cStartDate')) {
-        // Ini input type="date" (hidden/main)
-        document.getElementById('cStartDate').value = valDateAdded;
-    }
-    if(document.getElementById('cStartDateDisplay')) {
-        // Ini input display yang kamu lihat di layar
-        document.getElementById('cStartDateDisplay').value = valDateAdded;
-    }
+        // TANGGAL MASUK (PENTING: Menggunakan cStartDate sesuai HTML kamu)
+        // Kita ambil dateAdded dari database kawan
+        const valDateAdded = p.dateAdded || p.startDate || '';
+        
+        if(document.getElementById('cStartDate')) {
+            document.getElementById('cStartDate').value = valDateAdded;
+        }
+        if(document.getElementById('cStartDateDisplay')) {
+            document.getElementById('cStartDateDisplay').value = valDateAdded;
+        }
 
-    // 6. Sisa field lainnya
-    document.getElementById('cPriority').value = p.priority || 'Normal';
-    document.getElementById('cNote').value = p.note || '';
+        // Field Lainnya
+        document.getElementById('cPriority').value = p.priority || 'Normal';
+        document.getElementById('cNote').value = p.note || '';
 
-    if(document.getElementById('cImage')) {
-        document.getElementById('cImage').value = p.image || '';
-    }
+        if(document.getElementById('cImage')) {
+            document.getElementById('cImage').value = p.image || '';
+        }
 
-    // 7. Ubah teks tombol menjadi Simpan Perubahan
-    document.getElementById('btn-main-submit').innerText = "Simpan Perubahan";
+        // Tombol
+        const btnSubmit = document.getElementById('btn-main-submit');
+        if(btnSubmit) btnSubmit.innerText = "Simpan Perubahan";
+        
+        console.log("✅ Form Edit Berhasil Dimuat untuk:", p.client);
+    }, 50); // Jeda 50ms saja sudah cukup
 }
 
     async function saveNewProject() {
@@ -1978,6 +1986,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
