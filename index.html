@@ -1889,64 +1889,7 @@ function formatDateIndo(dateStr) {
     }
     return dateStr;
 }
-
-// --- 8. INITIAL LOAD (KODE YANG KAMU TANYAKAN) ---
-window.onload = async () => {
-    console.log("🚀 Memulai aplikasi...");
-    const splash = document.getElementById('splash-screen');
-
-    if (typeof updateUI === 'function') updateUI();
-    if (typeof initChart === 'function') initChart();
     
-    loadProfile();           
-    renderPortfolio();       
-    saveAndRenderPayments(); 
-    if (typeof initPortfolioDrag === 'function') initPortfolioDrag();
-    if (typeof filterWorklog === 'function') filterWorklog();
-
-    if (typeof runReportAnalytics === 'function') {
-        runReportAnalytics();
-    }
-
-    if (typeof fetchOnlineData === 'function') {
-        console.log("☁️ Mengambil data terbaru dari Google Sheets...");
-        await fetchOnlineData(); 
-        
-        setTimeout(() => {
-            if (typeof runReportAnalytics === 'function') {
-                runReportAnalytics();
-            }
-            if (typeof updateUI === 'function') updateUI();
-            if (typeof initChart === 'function') initChart();
-            
-            console.log("✅ Dashboard & Workflow Siap!");
-
-            if (splash) {
-                splash.classList.add('splash-fade-out');
-                setTimeout(() => { splash.style.display = 'none'; }, 800);
-            }
-        }, 1000); 
-    } else {
-        setTimeout(() => {
-            if (splash) {
-                splash.classList.add('splash-fade-out');
-                setTimeout(() => { splash.style.display = 'none'; }, 800);
-            }
-        }, 2000);
-    }
-};
-
-// --- REGISTRASI PWA ---
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('✅ PWA: Service Worker Berhasil Didaftarkan!', reg.scope))
-            .catch(err => console.log('❌ PWA: Service Worker Gagal', err));
-    });
-}
-
-    
-
 // --- 8. INITIAL LOAD (VERSI FINAL & PWA READY) ---
 window.onload = async () => {
     console.log("🚀 Memulai aplikasi...");
@@ -2025,5 +1968,6 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
