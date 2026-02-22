@@ -1228,71 +1228,53 @@
 }
 
     function editProject(id) {
-    // 1. Cari data proyek (Gunakan == agar aman antara string/number)
+    // Cari data berdasarkan ID (pakai == agar aman)
     const p = projects.find(proj => proj.id == id); 
-    
-    if(!p) {
-        if(typeof showToast === 'function') showToast("⚠️ Data tidak ditemukan!");
-        return;
-    }
+    if(!p) return;
 
-    // 2. Tutup modal detail terlebih dahulu
-    if (typeof closeDetail === 'function') closeDetail(); 
+    // Tutup detail modal
+    closeDetail(); 
 
-    // 3. PINDAH KE MENU ADD (Gunakan fungsi navigate asli dari file kamu)
-    // Kita ambil elemen nav 'Add' agar ikon di bawah juga berubah jadi hijau
-    const navAddBtn = document.querySelector('.nav-item i.fa-plus').parentElement;
+    // PINDAH HALAMAN (Langsung panggil 'Add', biarkan fungsi asli kamu yang urus navigasi)
     if (typeof navigate === 'function') {
-        navigate('Add', navAddBtn); 
+        navigate('Add'); 
     }
 
-    // 4. Beri jeda agar browser selesai merender tab 'Add'
+    // Jeda 150ms agar elemen input muncul di layar sebelum diisi
     setTimeout(() => {
-        try {
-            // Isi ID sebagai penanda mode EDIT
-            if(document.getElementById('edit-id')) document.getElementById('edit-id').value = p.id;
-
-            // Field Dasar
-            if(document.getElementById('cName')) document.getElementById('cName').value = p.client || '';
-            if(document.getElementById('cType')) document.getElementById('cType').value = p.type || '';
-            if(document.getElementById('cSoftware')) document.getElementById('cSoftware').value = p.software || '';
-            
-            // Harga & DP (Format titik ribuan)
-            if(document.getElementById('cFee')) {
-                document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
-            }
-            if(document.getElementById('cDP')) {
-                document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
-            }
-
-            // TANGGAL MASUK (Penting untuk keinginan kawan mengubah ke 25 Des)
-            const tglMasuk = p.dateAdded || p.startDate || '';
-            if(document.getElementById('cStartDate')) document.getElementById('cStartDate').value = tglMasuk;
-            if(document.getElementById('cStartDateDisplay')) {
-                // Gunakan formatDateIndo jika ada, jika tidak tampilkan apa adanya
-                document.getElementById('cStartDateDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(tglMasuk) : tglMasuk;
-            }
-
-            // DEADLINE
-            if(document.getElementById('cDeadlineValue')) document.getElementById('cDeadlineValue').value = p.deadline || '';
-            if(document.getElementById('cDeadlineDisplay')) {
-                document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
-            }
-
-            // Priority & Note
-            if(document.getElementById('cPriority')) document.getElementById('cPriority').value = p.priority || 'medium';
-            if(document.getElementById('cNote')) document.getElementById('cNote').value = p.note || '';
-            if(document.getElementById('cImage')) document.getElementById('cImage').value = p.image || '';
-
-            // Ganti tulisan tombol jadi Simpan Perubahan
-            const btnSubmit = document.getElementById('btn-main-submit');
-            if(btnSubmit) btnSubmit.innerText = "Simpan Perubahan";
-
-            console.log("✅ Form Edit berhasil dimuat!");
-        } catch (err) {
-            console.error("❌ Error saat mengisi data ke form:", err);
+        // ID & Nama
+        document.getElementById('edit-id').value = p.id;
+        document.getElementById('cName').value = p.client || '';
+        document.getElementById('cType').value = p.type || '';
+        document.getElementById('cSoftware').value = p.software || '';
+        
+        // Fee & DP
+        document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
+        document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
+        
+        // --- TANGGAL MASUK (cStartDate) ---
+        // Kita isi agar kawan bisa ubah ke 25 Desember
+        const tglMasuk = p.dateAdded || p.startDate || '';
+        document.getElementById('cStartDate').value = tglMasuk;
+        if(document.getElementById('cStartDateDisplay')) {
+            document.getElementById('cStartDateDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(tglMasuk) : tglMasuk;
         }
+
+        // DEADLINE
+        document.getElementById('cDeadlineValue').value = p.deadline || '';
+        if(document.getElementById('cDeadlineDisplay')) {
+            document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
+        }
+
+        // Sisa Field
+        document.getElementById('cPriority').value = p.priority || 'medium';
+        document.getElementById('cNote').value = p.note || '';
+        if(document.getElementById('cImage')) document.getElementById('cImage').value = p.image || '';
+
+        // Ganti Teks Tombol
+        document.getElementById('btn-main-submit').innerText = "Simpan Perubahan";
     }, 150);
+}
 }
     async function saveNewProject() {
     const editId = document.getElementById('edit-id').value;
@@ -1311,27 +1293,26 @@
         oldProject = projects.find(p => p.id == editId);
     }
 
-    // Buat format tanggal hari ini YYYY-MM-DD
     const today = new Date();
-    const stringToday = today.toISOString().split('T')[0];
+    const stringToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    // Ambil tanggal dari input di form (ID: cStartDate)
-    const manualDateInput = document.getElementById('cStartDate')?.value;
+    // Ambil nilai dari input cStartDate (Tempat kita naruh 25 Des tadi)
+    const manualDateInput = document.getElementById('cStartDate').value;
 
     const projectData = {
         id: editId ? parseInt(editId) : Date.now(),
         client: client, 
         fee: fee, 
         dp: isRekap ? fee : dp,
-        type: document.getElementById('cType').value || 'Design',
-        software: document.getElementById('cSoftware').value || '-',
+        type: document.getElementById('cType').value,
+        software: document.getElementById('cSoftware').value,
         priority: document.getElementById('cPriority').value,
         status: isRekap ? 'Paid' : (oldProject ? oldProject.status : (dp >= fee ? 'Paid' : (dp > 0 ? 'DP' : 'Unpaid'))),
         process: isRekap ? 'Selesai' : (oldProject ? oldProject.process : 'Antrean'),
         deadline: document.getElementById('cDeadlineValue').value,
         note: document.getElementById('cNote').value,
         
-        // --- KUNCI: Samakan dengan input form agar bisa diedit manual ---
+        // Pakai input manual agar tanggal 25 Des kawan tersimpan!
         startDate: manualDateInput || (oldProject ? oldProject.startDate : stringToday),
         dateAdded: manualDateInput || (oldProject ? oldProject.dateAdded : stringToday),
         
@@ -1346,7 +1327,6 @@
     }
 
     showToast("⏳ Menyinkronkan ke Cloud...");
-
     try {
         localStorage.setItem(DB_KEY, JSON.stringify(projects));
         await fetch(SCRIPT_URL, {
@@ -1964,6 +1944,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
