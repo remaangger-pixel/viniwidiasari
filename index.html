@@ -1228,52 +1228,72 @@
 }
 
     function editProject(id) {
-    // Cari data berdasarkan ID (pakai == agar aman)
+    console.log("Memulai proses edit untuk ID:", id);
+    
+    // 1. Cari data (pakai == agar aman)
     const p = projects.find(proj => proj.id == id); 
-    if(!p) return;
-
-    // Tutup detail modal
-    closeDetail(); 
-
-    // PINDAH HALAMAN (Langsung panggil 'Add', biarkan fungsi asli kamu yang urus navigasi)
-    if (typeof navigate === 'function') {
-        navigate('Add'); 
+    if(!p) {
+        alert("Data tidak ditemukan!");
+        return;
     }
 
-    // Jeda 150ms agar elemen input muncul di layar sebelum diisi
+    // 2. PINDAH HALAMAN DULU (Sangat penting agar tidak mental)
+    // Kita panggil fungsi navigasi bawaan kodemu
+    if (typeof navigate === 'function') {
+        navigate('Add'); 
+    } else {
+        // Fallback jika navigate gagal, kita pakai logika manual kodemu
+        showView('add'); 
+    }
+
+    // 3. TUTUP DETAIL SETELAH NAVIGASI JALAN
     setTimeout(() => {
-        // ID & Nama
-        document.getElementById('edit-id').value = p.id;
-        document.getElementById('cName').value = p.client || '';
-        document.getElementById('cType').value = p.type || '';
-        document.getElementById('cSoftware').value = p.software || '';
-        
-        // Fee & DP
-        document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
-        document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
-        
-        // --- TANGGAL MASUK (cStartDate) ---
-        // Kita isi agar kawan bisa ubah ke 25 Desember
-        const tglMasuk = p.dateAdded || p.startDate || '';
-        document.getElementById('cStartDate').value = tglMasuk;
-        if(document.getElementById('cStartDateDisplay')) {
-            document.getElementById('cStartDateDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(tglMasuk) : tglMasuk;
+        if (typeof closeDetail === 'function') closeDetail();
+    }, 50);
+
+    // 4. ISI DATA KE FORM (Kasih jeda agar halaman Add sudah siap)
+    setTimeout(() => {
+        try {
+            // Pastikan ID tersimpan agar sistem tahu ini MODE EDIT
+            document.getElementById('edit-id').value = p.id;
+            
+            // Isi field teks
+            document.getElementById('cName').value = p.client || '';
+            document.getElementById('cType').value = p.type || 'Design';
+            document.getElementById('cSoftware').value = p.software || '-';
+            
+            // Format angka
+            document.getElementById('cFee').value = Number(p.fee || 0).toLocaleString('id-ID');
+            document.getElementById('cDP').value = Number(p.dp || 0).toLocaleString('id-ID');
+            
+            // TANGGAL MASUK (cStartDate)
+            const tglMasuk = p.dateAdded || p.startDate || '';
+            document.getElementById('cStartDate').value = tglMasuk;
+            if(document.getElementById('cStartDateDisplay')) {
+                document.getElementById('cStartDateDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(tglMasuk) : tglMasuk;
+            }
+
+            // DEADLINE
+            document.getElementById('cDeadlineValue').value = p.deadline || '';
+            if(document.getElementById('cDeadlineDisplay')) {
+                document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
+            }
+
+            // Sisa field
+            document.getElementById('cPriority').value = p.priority || 'medium';
+            document.getElementById('cNote').value = p.note || '';
+            if(document.getElementById('cImage')) {
+                document.getElementById('cImage').value = p.image || '';
+            }
+
+            // UBAH TOMBOL
+            document.getElementById('btn-main-submit').innerText = "Simpan Perubahan";
+            
+            console.log("✅ Form berhasil diisi untuk client:", p.client);
+        } catch (err) {
+            console.error("Gagal mengisi form:", err);
         }
-
-        // DEADLINE
-        document.getElementById('cDeadlineValue').value = p.deadline || '';
-        if(document.getElementById('cDeadlineDisplay')) {
-            document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
-        }
-
-        // Sisa Field
-        document.getElementById('cPriority').value = p.priority || 'medium';
-        document.getElementById('cNote').value = p.note || '';
-        if(document.getElementById('cImage')) document.getElementById('cImage').value = p.image || '';
-
-        // Ganti Teks Tombol
-        document.getElementById('btn-main-submit').innerText = "Simpan Perubahan";
-    }, 150);
+    }, 200); // Jeda sedikit lebih lama agar pasti muncul
 }
     
     async function saveNewProject() {
@@ -1944,6 +1964,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
