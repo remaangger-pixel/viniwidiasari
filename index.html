@@ -1232,22 +1232,25 @@
     const p = projects.find(proj => proj.id == id); 
     
     if(!p) {
-        showToast("⚠️ Data tidak ditemukan!");
+        if(typeof showToast === 'function') showToast("⚠️ Data tidak ditemukan!");
         return;
     }
 
     // 2. Tutup detail (jika fungsi ada)
     if (typeof closeDetail === 'function') closeDetail(); 
 
-    // 3. PINDAH HALAMAN (Ganti navigate menjadi switchTab sesuai kodemu)
+    // 3. PINDAH HALAMAN (MENGGUNAKAN switchTab, BUKAN navigate)
+    // Di file kamu, fungsi ini yang benar untuk pindah menu
     if (typeof switchTab === 'function') {
-        switchTab('add'); // Di file kamu, ID tab-nya adalah 'add' (huruf kecil)
+        switchTab('add'); 
+    } else {
+        console.error("Fungsi switchTab tidak ditemukan!");
     }
 
-    // 4. Beri jeda sedikit agar form siap
+    // 4. Beri jeda 150ms agar elemen HTML di tab 'add' siap diisi
     setTimeout(() => {
         try {
-            // Isi ID tersembunyi
+            // Isi ID tersembunyi untuk penanda mode EDIT
             const editIdField = document.getElementById('edit-id');
             if(editIdField) editIdField.value = p.id;
 
@@ -1272,11 +1275,10 @@
                 document.getElementById('cDeadlineValue').value = p.deadline || '';
             }
             if(document.getElementById('cDeadlineDisplay')) {
-                // Pastikan fungsi formatDateIndo ada, jika tidak pakai nilai asli
                 document.getElementById('cDeadlineDisplay').value = (typeof formatDateIndo === 'function') ? formatDateIndo(p.deadline) : p.deadline;
             }
 
-            // TANGGAL MASUK (Sesuai ID di HTML kamu: cStartDate)
+            // --- TANGGAL MASUK (Sesuai ID cStartDate di HTML kamu) ---
             const tglMasuk = p.dateAdded || p.startDate || '';
             if(document.getElementById('cStartDate')) {
                 document.getElementById('cStartDate').value = tglMasuk;
@@ -1285,18 +1287,18 @@
                 document.getElementById('cStartDateDisplay').value = tglMasuk;
             }
 
-            // Sisa field
+            // Sisa field: Priority, Note, Image
             if(document.getElementById('cPriority')) document.getElementById('cPriority').value = p.priority || 'Normal';
             if(document.getElementById('cNote')) document.getElementById('cNote').value = p.note || '';
             if(document.getElementById('cImage')) document.getElementById('cImage').value = p.image || '';
 
-            // Ganti teks tombol
+            // Ganti teks tombol utama
             const btnSubmit = document.getElementById('btn-main-submit');
             if(btnSubmit) btnSubmit.innerText = "Simpan Perubahan";
 
-            console.log("✅ Berhasil memuat data edit!");
+            console.log("✅ Berhasil memuat data edit kawan!");
         } catch (err) {
-            console.error("❌ Error isi form:", err);
+            console.error("❌ Error saat mengisi form edit:", err);
         }
     }, 150);
 }
@@ -1971,6 +1973,7 @@ if ('serviceWorker' in navigator) {
 </body>
 
 </html>
+
 
 
 
