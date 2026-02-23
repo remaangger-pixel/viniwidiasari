@@ -1070,7 +1070,8 @@
         const { data: onlineData, error } = await _supabase
             .from('projects')
             .select('*')
-            .order('id', { ascending: false });
+            // DIUBAH: Mengurutkan berdasarkan startDate terbaru agar karya teranyar muncul di awal
+            .order('startDate', { ascending: false });
 
         if (error) throw error;
 
@@ -1119,11 +1120,11 @@
             if (typeof initChart === 'function') {
                 setTimeout(() => {
                     initChart();
-                    console.log("📈 Chart & Report updated from Supabase");
+                    console.log("📈 Chart & Report updated dari Supabase (Terurut Tanggal)");
                 }, 500);
             }
 
-            console.log("✅ Data berhasil sinkron dari Supabase!");
+            console.log("✅ Data berhasil sinkron & diurutkan (Terbaru -> Lama)!");
         }
     } catch (err) {
         console.error("⚠️ Gagal sinkron Supabase:", err);
@@ -1131,6 +1132,8 @@
         const local = localStorage.getItem(DB_KEY);
         if(local) {
             projects = JSON.parse(local);
+            // Tetap pastikan data lokal terurut terbaru jika fallback
+            projects.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
             updateUI();
         }
     }
@@ -2104,18 +2107,33 @@ function renderFilteredList(data) {
 function renderPortfolio() {
     const portContainer = document.getElementById('portfolio-list');
     if (!portContainer) return;
-    const finishedProjects = projects.filter(p => p.process === 'Selesai');
+
+    // 1. Filter hanya yang 'Selesai' DAN urutkan berdasarkan startDate terbaru
+    const finishedProjects = projects
+        .filter(p => p.process === 'Selesai')
+        .sort((a, b) => {
+            // Mengurutkan berdasarkan tanggal mulai (terbaru di atas)
+            return new Date(b.startDate) - new Date(a.startDate);
+        });
+
+    // 2. Jika tidak ada data
     if (finishedProjects.length === 0) {
         portContainer.innerHTML = '<p style="text-align:center;color:var(--text-dim);font-size:12px;width:100%;padding:20px;">Belum ada karya selesai.</p>';
         return;
     }
+
+    // 3. Render ke HTML
     portContainer.innerHTML = finishedProjects.map(p => {
-        const imgUrl = (p.image && p.image.trim() !== "") ? p.image : 'https://via.placeholder.com/400x250/1e293b/ffffff?text=No+Image';
+        // Cek apakah ada foto, jika tidak pakai placeholder
+        const imgUrl = (p.image && p.image.trim() !== "") 
+            ? p.image 
+            : 'https://via.placeholder.com/400x250/1e293b/ffffff?text=No+Image';
+
         return `
             <div class="portfolio-card">
                 <img src="${imgUrl}" class="portfolio-img" onerror="this.src='https://via.placeholder.com/400x250/1e293b/ffffff?text=Link+Error'">
                 <div style="padding:0 5px">
-                    <h4 style="font-size:13px; margin-bottom:4px; color:var(--text-bright)">${p.client}</h4>
+                    <h4 style="font-size:13px; margin-bottom:4px; color:var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.client}</h4>
                     <p style="font-size:10px; color:var(--accent); font-weight:600">${p.type}</p>
                 </div>
             </div>`;
